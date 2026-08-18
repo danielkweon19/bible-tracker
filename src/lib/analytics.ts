@@ -121,6 +121,25 @@ export function readingInsights(sessions: ReadingSession[], now = new Date()) {
   };
 }
 
+export function currentWeekShare(sessions: ReadingSession[], now = new Date()) {
+  const start = startOfWeek(now);
+  const weekSessions = sessions.filter(session => {
+    const date = sessionDate(session);
+    return date && date >= start && date <= now;
+  });
+  return {
+    weekKey: formatDateKey(start),
+    durationSeconds: sumSeconds(weekSessions),
+    chaptersRead: weekSessions.reduce((sum, session) => sum + session.chapters.length, 0),
+    activeDays: new Set(
+      weekSessions
+        .map(sessionDate)
+        .filter((date): date is Date => Boolean(date))
+        .map(formatDateKey)
+    ).size
+  };
+}
+
 function calculateStreak(sessions: ReadingSession[], now: Date): number {
   const active = new Set(
     sessions.map(sessionDate).filter((date): date is Date => Boolean(date)).map(dateKey)
@@ -152,6 +171,20 @@ function startOfDay(date: Date): Date {
 
 function dateKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function startOfWeek(date: Date): Date {
+  const start = startOfDay(date);
+  const mondayOffset = (start.getDay() + 6) % 7;
+  return new Date(start.getTime() - mondayOffset * DAY_MS);
+}
+
+function formatDateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
 }
 
 function pad(value: number): string {

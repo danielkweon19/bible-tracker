@@ -65,9 +65,9 @@ export function AuthScreen() {
 
   return (
     <main className="auth-page">
-      <section className="auth-visual" aria-label="Selah Bible">
+      <section className="auth-visual" aria-label="Bible Tracker">
         <div className="auth-visual-shade" />
-        <div className="brand brand-light"><BookOpen size={20} /> Selah Bible</div>
+        <div className="brand brand-light"><BookOpen size={20} /> Bible Tracker</div>
         <div className="auth-quote">
           <p className="eyebrow">Read with intention</p>
           <h1>Open the Word.<br />Keep your place.</h1>
@@ -76,7 +76,7 @@ export function AuthScreen() {
       </section>
       <section className="auth-panel">
         <div className="auth-card">
-          <div className="mobile-brand brand"><BookOpen size={19} /> Selah Bible</div>
+          <div className="mobile-brand brand"><BookOpen size={19} /> Bible Tracker</div>
           <p className="eyebrow">{mode === "signin" ? "Welcome back" : "Create your account"}</p>
           <h2>{mode === "signin" ? "Return to your reading" : "Begin your reading record"}</h2>
           <p className="muted">Your history and progress stay private to your account.</p>
