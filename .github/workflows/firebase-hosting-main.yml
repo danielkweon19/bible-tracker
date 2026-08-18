@@ -1,0 +1,57 @@
+name: Deploy Firebase Hosting
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: firebase-hosting-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build application
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: AIzaSyD9SLbmJ6PzTXkxg2PErnGeHXa4uRfvelo
+          VITE_FIREBASE_AUTH_DOMAIN: bible-tracker-8434e.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: bible-tracker-8434e
+          VITE_FIREBASE_STORAGE_BUCKET: bible-tracker-8434e.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "831553702914"
+          VITE_FIREBASE_APP_ID: "1:831553702914:web:9343663e19adea53316b1b"
+          VITE_FIREBASE_MEASUREMENT_ID: G-GV3DVW7SXE
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/831553702914/locations/global/workloadIdentityPools/github/providers/github
+          service_account: github-firebase-hosting@bible-tracker-8434e.iam.gserviceaccount.com
+
+      - name: Deploy live site
+        run: npx firebase deploy --only hosting:jbch-bible-tracker --project bible-tracker-8434e --non-interactive

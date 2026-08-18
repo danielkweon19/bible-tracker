@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function validSession() {
+      return request.resource.data.keys().hasOnly([
+          "uid",
+          "durationSeconds",
+          "chapters",
+          "verseCount",
+          "createdAt"
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.durationSeconds is int
+        && request.resource.data.durationSeconds > 0
+        && request.resource.data.durationSeconds <= 43200
+        && request.resource.data.chapters is list
+        && request.resource.data.chapters.size() > 0
+        && request.resource.data.chapters.size() <= 50
+        && request.resource.data.verseCount is int
+        && request.resource.data.verseCount > 0
+        && request.resource.data.verseCount <= 5000
+        && request.resource.data.createdAt == request.time;
+    }
+
+    match /readingSessions/{sessionId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create: if signedIn() && validSession();
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow update: if false;
+    }
+  }
+}
