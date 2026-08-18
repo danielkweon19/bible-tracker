@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ReadingSession } from "../types";
-import { calculateReadingStats, currentWeekShare, dailyActivity, readingInsights } from "./analytics";
+import { calculateReadingStats, dailyActivity, readingInsights } from "./analytics";
 
 const now = new Date(2026, 7, 18, 12);
 
@@ -74,22 +74,5 @@ describe("readingInsights", () => {
     expect(insights.topBookChapters).toBe(2);
     expect(insights.preferredPart).toBe("Morning");
     expect(insights.activeDays).toBe(3);
-  });
-});
-
-describe("currentWeekShare", () => {
-  it("uses the current Monday-through-today calendar week", () => {
-    const share = currentWeekShare([
-      session("1", 0, 600, ["John 1"]),
-      session("2", 1, 900, ["John 2", "John 3"]),
-      session("3", 3, 300, ["Psalm 1"]),
-      session("4", 8, 1200, ["Romans 1"])
-    ], now);
-    expect(share).toEqual({
-      weekKey: "2026-08-17",
-      durationSeconds: 1500,
-      chaptersRead: 3,
-      activeDays: 2
-    });
   });
 });

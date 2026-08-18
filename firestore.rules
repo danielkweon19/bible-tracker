@@ -6,11 +6,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function roomMember(roomId) {
-      return signedIn()
-        && exists(/databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid));
-    }
-
     function validSession() {
       return request.resource.data.keys().hasOnly([
           "uid",
@@ -37,91 +32,6 @@ service cloud.firestore {
       allow create: if signedIn() && validSession();
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
       allow update: if false;
-    }
-
-    match /communityProfiles/{userId} {
-      allow read: if signedIn() && userId == request.auth.uid;
-      allow create, update: if signedIn()
-        && userId == request.auth.uid
-        && request.resource.data.keys().hasOnly(["roomId", "updatedAt"])
-        && request.resource.data.roomId is string
-        && request.resource.data.roomId.size() == 6
-        && request.resource.data.updatedAt == request.time;
-      allow delete: if signedIn() && userId == request.auth.uid;
-    }
-
-    match /rooms/{roomId} {
-      allow read: if signedIn();
-      allow create: if signedIn()
-        && roomId.matches("[A-Z0-9]{6}")
-        && request.resource.data.keys().hasOnly(["name", "ownerUid", "createdAt"])
-        && request.resource.data.name is string
-        && request.resource.data.name.size() >= 2
-        && request.resource.data.name.size() <= 40
-        && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.createdAt == request.time;
-      allow update, delete: if false;
-
-      match /members/{memberId} {
-        allow read: if roomMember(roomId);
-        allow create: if signedIn()
-          && memberId == request.auth.uid
-          && existsAfter(/databases/$(database)/documents/rooms/$(roomId))
-          && request.resource.data.keys().hasOnly([
-            "uid",
-            "displayName",
-            "photoURL",
-            "joinedAt"
-          ])
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.displayName is string
-          && request.resource.data.displayName.size() >= 1
-          && request.resource.data.displayName.size() <= 80
-          && (request.resource.data.photoURL == null || request.resource.data.photoURL is string)
-          && request.resource.data.joinedAt == request.time;
-        allow delete: if signedIn()
-          && (
-            (memberId == request.auth.uid
-              && get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerUid != request.auth.uid)
-            || (memberId != request.auth.uid
-              && get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerUid == request.auth.uid)
-          );
-        allow update: if false;
-      }
-
-      match /weeklyStats/{statId} {
-        allow read: if roomMember(roomId);
-        allow create, update: if roomMember(roomId)
-          && statId == request.resource.data.weekKey + "_" + request.auth.uid
-          && request.resource.data.keys().hasOnly([
-            "uid",
-            "displayName",
-            "photoURL",
-            "weekKey",
-            "durationSeconds",
-            "chaptersRead",
-            "activeDays",
-            "updatedAt"
-          ])
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.displayName is string
-          && request.resource.data.displayName.size() >= 1
-          && request.resource.data.displayName.size() <= 80
-          && (request.resource.data.photoURL == null || request.resource.data.photoURL is string)
-          && request.resource.data.weekKey is string
-          && request.resource.data.weekKey.size() == 10
-          && request.resource.data.durationSeconds is int
-          && request.resource.data.durationSeconds >= 0
-          && request.resource.data.durationSeconds <= 604800
-          && request.resource.data.chaptersRead is int
-          && request.resource.data.chaptersRead >= 0
-          && request.resource.data.chaptersRead <= 500
-          && request.resource.data.activeDays is int
-          && request.resource.data.activeDays >= 0
-          && request.resource.data.activeDays <= 7
-          && request.resource.data.updatedAt == request.time;
-        allow delete: if roomMember(roomId) && resource.data.uid == request.auth.uid;
-      }
     }
   }
 }

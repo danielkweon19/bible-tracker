@@ -4,7 +4,6 @@ import { AuthScreen } from "./components/AuthScreen";
 import { AppShell } from "./components/AppShell";
 import { useAuth } from "./hooks/useAuth";
 import { useBible } from "./hooks/useBible";
-import { useCommunity } from "./hooks/useCommunity";
 import { useSessions } from "./hooks/useSessions";
 import { chapterKey, nextLocation, uniqueChapters, verseCountForKeys } from "./lib/bible";
 import { demoSessions, demoUser } from "./lib/demo";
@@ -12,8 +11,8 @@ import { db, isFirebaseConfigured } from "./lib/firebase";
 import { addReadingSession, removeReadingSession } from "./lib/sessions";
 import type { ActiveReading, ReadingLocation, ReadingSession } from "./types";
 
-const ACTIVE_KEY = "bible-tracker.active";
-const LOCATION_KEY = "bible-tracker.location";
+const ACTIVE_KEY = "selah-bible.active";
+const LOCATION_KEY = "selah-bible.location";
 const DEFAULT_LOCATION: ReadingLocation = { bookIndex: 42, chapterIndex: 0 };
 
 export default function App() {
@@ -22,8 +21,7 @@ export default function App() {
   const { bible, error: bibleError } = useBible();
   const user = demo ? demoUser : firebaseUser;
   const uid = user && !demo ? user.uid : null;
-  const { sessions, setSessions, loading, synced, error } = useSessions(uid, demo ? demoSessions : []);
-  const community = useCommunity(user, sessions, Boolean(user && !demo), synced);
+  const { sessions, setSessions, loading, error } = useSessions(uid, demo ? demoSessions : []);
   const [location, setLocation] = useState<ReadingLocation>(DEFAULT_LOCATION);
   const [active, setActive] = useState<ActiveReading | null>(null);
   const [toast, setToast] = useState("");
@@ -45,7 +43,7 @@ export default function App() {
 
   if (!isFirebaseConfigured && !demo) return <SetupScreen />;
   if ((authLoading && !demo) || !bible) {
-    return <div className="full-loader"><Loader2 className="spin" /><span>{bibleError ?? "Opening Bible Tracker"}</span></div>;
+    return <div className="full-loader"><Loader2 className="spin" /><span>{bibleError ?? "Opening Selah Bible"}</span></div>;
   }
   if (!user) return <AuthScreen />;
 
@@ -132,7 +130,6 @@ export default function App() {
         user={user}
         bible={bible}
         sessions={sessions}
-        community={community}
         loading={loading}
         error={error || bibleError}
         demo={demo}
@@ -156,7 +153,7 @@ function SetupScreen() {
     <main className="setup-page">
       <section className="setup-card">
         <div className="setup-icon"><Settings /></div>
-        <div className="brand"><BookOpen size={20} /> Bible Tracker</div>
+        <div className="brand"><BookOpen size={20} /> Selah Bible</div>
         <p className="eyebrow">One-time setup</p>
         <h1>Connect your Firebase project</h1>
         <p>Add your Firebase web app credentials to <code>.env.local</code>, then restart the development server.</p>

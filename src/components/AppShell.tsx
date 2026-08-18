@@ -9,23 +9,19 @@ import {
   LineChart,
   LogOut,
   Menu,
-  Users,
   X
 } from "lucide-react";
-import type { useCommunity } from "../hooks/useCommunity";
 import { auth } from "../lib/firebase";
 import type { ActiveReading, BibleData, ReadingLocation, ReadingSession } from "../types";
 import { History, Insights, Overview } from "./DashboardViews";
 import { Reader } from "./Reader";
-import { Community } from "./Community";
 
-export type View = "read" | "overview" | "insights" | "history" | "community";
+export type View = "read" | "overview" | "insights" | "history";
 
 export function AppShell({
   user,
   bible,
   sessions,
-  community,
   loading,
   error,
   demo,
@@ -42,7 +38,6 @@ export function AppShell({
   user: Pick<User, "uid" | "displayName" | "email" | "photoURL">;
   bible: BibleData;
   sessions: ReadingSession[];
-  community: ReturnType<typeof useCommunity>;
   loading: boolean;
   error: string | null;
   demo: boolean;
@@ -79,14 +74,13 @@ export function AppShell({
   return (
     <div className="app-shell">
       <aside className={mobileMenu ? "sidebar open" : "sidebar"}>
-        <div className="brand"><BookOpen size={20} /> Bible Tracker</div>
+        <div className="brand"><BookOpen size={20} /> Selah Bible</div>
         <button className="icon-button close-menu" onClick={() => setMobileMenu(false)} aria-label="Close menu"><X /></button>
         <nav>
           <button className={view === "read" ? "active" : ""} onClick={() => navigate("read")}><Library /> Read</button>
           <button className={view === "overview" ? "active" : ""} onClick={() => navigate("overview")}><BarChart3 /> Overview</button>
           <button className={view === "insights" ? "active" : ""} onClick={() => navigate("insights")}><LineChart /> Insights</button>
           <button className={view === "history" ? "active" : ""} onClick={() => navigate("history")}><HistoryIcon /> History</button>
-          <button className={view === "community" ? "active" : ""} onClick={() => navigate("community")}><Users /> Community</button>
         </nav>
         {active && <button className="active-reading-card" onClick={() => navigate("read")}><span className="live-dot" /><span><strong>Reading in progress</strong><small>{bible.books[location.bookIndex].name} {location.chapterIndex + 1}</small></span></button>}
         <div className="user-menu" ref={menuRef}>
@@ -105,12 +99,11 @@ export function AppShell({
         <button className="icon-button menu-button" onClick={() => setMobileMenu(true)} aria-label="Open menu"><Menu /></button>
         {demo && <div className="demo-notice">Demo preview. Changes stay in this browser session.</div>}
         {error && <div className="error-notice">{error}</div>}
-        {view === "read" ? <Reader bible={bible} location={location} active={active} onLocation={onLocation} onStart={onStart} onCompleteNext={onCompleteNext} onFinish={onFinish} onDiscard={onDiscard} /> :
-          loading ? <div className="loading-state">Loading your reading history...</div> :
+        {loading ? <div className="loading-state">Loading your reading history...</div> :
+          view === "read" ? <Reader bible={bible} location={location} active={active} onLocation={onLocation} onStart={onStart} onCompleteNext={onCompleteNext} onFinish={onFinish} onDiscard={onDiscard} /> :
           view === "overview" ? <Overview sessions={sessions} firstName={firstName} onRead={() => navigate("read")} onInsights={() => navigate("insights")} onDelete={onDelete} /> :
           view === "insights" ? <Insights sessions={sessions} /> :
-          view === "history" ? <History sessions={sessions} onDelete={onDelete} /> :
-          <Community community={community} uid={user.uid} demo={demo} />}
+          <History sessions={sessions} onDelete={onDelete} />}
       </main>
     </div>
   );
