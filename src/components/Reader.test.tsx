@@ -21,7 +21,7 @@ beforeAll(() => {
   });
 });
 
-function renderReader(active: ActiveReading, saving = false) {
+function renderReader(active: ActiveReading) {
   const onStop = vi.fn();
   const onFinish = vi.fn();
   const onLocation = vi.fn();
@@ -35,7 +35,6 @@ function renderReader(active: ActiveReading, saving = false) {
       onStart={vi.fn()}
       onStop={onStop}
       onFinish={onFinish}
-      saving={saving}
       onDiscard={vi.fn()}
     />
   );
@@ -68,12 +67,6 @@ describe("reading timer", () => {
     fireEvent.click(screen.getByRole("button", { name: /save session/i }));
 
     expect(onFinish).toHaveBeenCalledOnce();
-  });
-
-  it("disables the save action while the session is being saved", () => {
-    renderReader({ startedAt: 1_000, stoppedAt: 126_000, chapters: [] }, true);
-
-    expect(screen.getByRole("button", { name: /saving/i })).toBeDisabled();
   });
 
   it("moves to the next chapter with a horizontal swipe", () => {

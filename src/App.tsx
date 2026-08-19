@@ -12,9 +12,7 @@ import { demoSessions, demoUser } from "./lib/demo";
 import { db, isFirebaseConfigured } from "./lib/firebase";
 import {
   addReadingSession,
-  removeReadingSession,
-  waitForReadingSessionSave,
-  type ReadingSessionSaveStatus
+  removeReadingSession
 } from "./lib/sessions";
 import type { ActiveReading, ReadingLocation, ReadingSession } from "./types";
 
@@ -33,7 +31,6 @@ export default function App() {
   const { sessions, setSessions, loading, error } = useSessions(uid, demo ? demoSessions : []);
   const [location, setLocation] = useState<ReadingLocation>(DEFAULT_LOCATION);
   const [active, setActive] = useState<ActiveReading | null>(null);
-  const [saving, setSaving] = useState(false);
   const [savedConfirmation, setSavedConfirmation] = useState<SaveConfirmation | null>(null);
   const [toast, setToast] = useState("");
 
@@ -89,16 +86,17 @@ export default function App() {
     persistActive(stopped);
   }
 
-  async function finishReading() {
-    if (!active || !bible || saving) return;
+  function finishReading() {
+    if (!active || !bible) return;
+    const sessionToSave = active;
     const chapters = uniqueChapters([...active.chapters, chapterKey(bible, location)]);
     const durationSeconds = Math.max(
       1,
       Math.floor(((active.stoppedAt ?? Date.now()) - active.startedAt) / 1000)
     );
     const verseCount = verseCountForKeys(bible, chapters);
-    let saveStatus: ReadingSessionSaveStatus = "confirmed";
-    setSaving(true);
+    const sessionSummary = `${formatTimer(durationSeconds)} · ${chapters.length} ${chapters.length === 1 ? "chapter" : "chapters"}`;
+
     try {
       if (demo) {
         const session: ReadingSession = {
@@ -111,19 +109,26 @@ export default function App() {
         };
         setSessions(current => [session, ...current]);
       } else if (db) {
-        const save = addReadingSession(db, user!.uid, durationSeconds, chapters, verseCount);
-        saveStatus = await waitForReadingSessionSave(save, navigator.onLine ? undefined : 0);
+        void addReadingSession(db, user!.uid, durationSeconds, chapters, verseCount)
+          .catch(() => recoverFailedSave(sessionToSave));
       }
       clearActive();
-      const sessionSummary = `${formatTimer(durationSeconds)} · ${chapters.length} ${chapters.length === 1 ? "chapter" : "chapters"}`;
-      showSavedConfirmation(saveStatus === "confirmed"
+      showSavedConfirmation(navigator.onLine
         ? { title: "Session saved", detail: `${sessionSummary} added to history` }
-        : { title: "Saved on this device", detail: `${sessionSummary} · Waiting to sync` });
+        : { title: "Saved on this device", detail: `${sessionSummary} · Will sync automatically` });
     } catch {
       showToast("Session not saved. Please try again.");
-    } finally {
-      setSaving(false);
     }
+  }
+
+  function recoverFailedSave(session: ActiveReading) {
+    setSavedConfirmation(null);
+    setActive(current => {
+      if (current) return current;
+      persistActive(session);
+      return session;
+    });
+    showToast("Session could not sync. It is ready to retry.");
   }
 
   function discardReading() {
@@ -176,7 +181,6 @@ export default function App() {
         onStart={startReading}
         onStop={stopReading}
         onFinish={finishReading}
-        saving={saving}
         onDiscard={discardReading}
         onDelete={deleteSession}
       />

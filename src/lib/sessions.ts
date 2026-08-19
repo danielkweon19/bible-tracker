@@ -13,9 +13,6 @@ import {
 import type { ReadingSession } from "../types";
 
 const COLLECTION = "readingSessions";
-const SAVE_ACK_TIMEOUT_MS = 4_000;
-
-export type ReadingSessionSaveStatus = "confirmed" | "pending";
 
 export async function addReadingSession(
   db: Firestore,
@@ -31,25 +28,6 @@ export async function addReadingSession(
     verseCount,
     createdAt: serverTimestamp()
   });
-}
-
-export async function waitForReadingSessionSave(
-  save: Promise<void>,
-  timeoutMs = SAVE_ACK_TIMEOUT_MS
-): Promise<ReadingSessionSaveStatus> {
-  let timeout: number | undefined;
-  const pending = new Promise<ReadingSessionSaveStatus>(resolve => {
-    timeout = window.setTimeout(() => resolve("pending"), timeoutMs);
-  });
-
-  try {
-    return await Promise.race([
-      save.then(() => "confirmed" as const),
-      pending
-    ]);
-  } finally {
-    if (timeout !== undefined) window.clearTimeout(timeout);
-  }
 }
 
 export async function removeReadingSession(db: Firestore, id: string) {

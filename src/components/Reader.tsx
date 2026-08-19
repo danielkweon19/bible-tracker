@@ -4,7 +4,6 @@ import {
   ChevronRight,
   Clock3,
   CircleStop,
-  Loader2,
   Play,
   Save,
   X
@@ -21,7 +20,6 @@ export function Reader({
   onStart,
   onStop,
   onFinish,
-  saving,
   onDiscard
 }: {
   bible: BibleData;
@@ -31,7 +29,6 @@ export function Reader({
   onStart: () => void;
   onStop: () => void;
   onFinish: () => void;
-  saving: boolean;
   onDiscard: () => void;
 }) {
   const book = bible.books[location.bookIndex];
@@ -104,10 +101,7 @@ export function Reader({
             {active.stoppedAt === undefined ? (
               <button className="primary-button" onClick={onStop}><CircleStop size={17} /> Stop timer</button>
             ) : (
-              <button className="primary-button" onClick={onFinish} disabled={saving}>
-                {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
-                {saving ? "Saving..." : "Save session"}
-              </button>
+              <button className="primary-button" onClick={onFinish}><Save size={17} /> Save session</button>
             )}
             <button className="icon-button discard-button" onClick={onDiscard} title="Discard reading session" aria-label="Discard reading session"><X /></button>
           </div>

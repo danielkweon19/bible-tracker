@@ -52,7 +52,7 @@ afterEach(() => {
 });
 
 describe("reading session timer", () => {
-  it("freezes the duration when stopped and saves that final time", async () => {
+  it("freezes the duration and submits that final time immediately", () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
     render(<App />);
 
@@ -68,7 +68,8 @@ describe("reading session timer", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /save session/i }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Session saved");
+    expect(screen.queryByText(/saving/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Session saved");
     expect(screen.getByRole("status")).toHaveTextContent(
       "02:05 · 1 chapter added to history"
     );
