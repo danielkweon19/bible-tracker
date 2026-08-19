@@ -35,6 +35,7 @@ export default function App() {
   const [active, setActive] = useState<ActiveReading | null>(null);
   const [savedConfirmation, setSavedConfirmation] = useState<SaveConfirmation | null>(null);
   const [toast, setToast] = useState("");
+  const [clearingHistory, setClearingHistory] = useState(false);
   const submittedSessions = useRef(new Set<number>());
 
   useEffect(() => {
@@ -178,12 +179,24 @@ export default function App() {
 
   async function clearHistory() {
     if (!window.confirm("Clear your entire reading history? This cannot be undone.")) return;
+    const previousSessions = sessions;
+    setClearingHistory(true);
+    setSessions([]);
+    showToast("Clearing reading history...");
     try {
-      if (demo) setSessions([]);
-      else if (db && user) await clearReadingSessions(db, user.uid);
+      if (!demo && db && user) {
+        await clearReadingSessions(
+          db,
+          user.uid,
+          previousSessions.map(session => session.id)
+        );
+      }
       showToast("Reading history cleared.");
     } catch {
+      setSessions(previousSessions);
       showToast("Your reading history could not be cleared.");
+    } finally {
+      setClearingHistory(false);
     }
   }
 
@@ -215,7 +228,7 @@ export default function App() {
       <AppShell
         user={user}
         bible={bible}
-        sessions={sessions}
+        sessions={clearingHistory ? [] : sessions}
         loading={loading}
         error={error || bibleError}
         demo={demo}

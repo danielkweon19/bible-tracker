@@ -56,4 +56,25 @@ describe("History", () => {
 
     expect(onDelete).toHaveBeenCalledOnce();
   });
+
+  it("shows contiguous chapters from one book as a range", () => {
+    render(
+      <History
+        sessions={[{
+          ...session,
+          chapters: [
+            "Psalms 40",
+            "Psalms 41",
+            "Psalms 42",
+            "Psalms 43",
+            "Psalms 44"
+          ]
+        }]}
+        onDelete={vi.fn()}
+        onClear={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Psalms 40 - 44")).toBeInTheDocument();
+  });
 });

@@ -185,6 +185,24 @@ function SessionRow({
 function formatChapters(chapters: string[]): string {
   if (!chapters.length) return "Reading session";
   if (chapters.length === 1) return chapters[0];
+  const references = chapters.map(chapter => {
+    const match = chapter.match(/^(.*) (\d+)$/);
+    return match ? { book: match[1], chapter: Number(match[2]) } : null;
+  });
+  if (
+    references.every(reference => reference !== null) &&
+    references.every(reference => reference.book === references[0]!.book)
+  ) {
+    const chapterNumbers = references
+      .map(reference => reference.chapter)
+      .sort((left, right) => left - right);
+    const contiguous = chapterNumbers.every(
+      (chapter, index) => index === 0 || chapter === chapterNumbers[index - 1] + 1
+    );
+    if (contiguous) {
+      return `${references[0]!.book} ${chapterNumbers[0]} - ${chapterNumbers[chapterNumbers.length - 1]}`;
+    }
+  }
   if (chapters.length === 2) return `${chapters[0]}, ${chapters[1]}`;
   return `${chapters[0]} +${chapters.length - 1} chapters`;
 }

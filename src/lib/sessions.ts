@@ -9,6 +9,7 @@ import {
   setDoc,
   where,
   writeBatch,
+  type DocumentReference,
   type Firestore,
   type Unsubscribe
 } from "firebase/firestore";
@@ -42,13 +43,31 @@ export async function removeReadingSession(db: Firestore, id: string) {
   await deleteDoc(doc(db, COLLECTION, id));
 }
 
-export async function clearReadingSessions(db: Firestore, uid: string) {
+export async function clearReadingSessions(
+  db: Firestore,
+  uid: string,
+  visibleSessionIds: string[] = []
+) {
+  await deleteSessionRefs(
+    db,
+    [...new Set(visibleSessionIds)].map(id => doc(db, COLLECTION, id))
+  );
+
+  // The visible list collapses legacy duplicates, so query again to remove any
+  // hidden records that were not represented by the supplied document IDs.
   const snapshot = await getDocs(
     query(collection(db, COLLECTION), where("uid", "==", uid))
   );
-  for (let index = 0; index < snapshot.docs.length; index += 450) {
+  await deleteSessionRefs(db, snapshot.docs.map(item => item.ref));
+}
+
+async function deleteSessionRefs(
+  db: Firestore,
+  refs: DocumentReference[]
+) {
+  for (let index = 0; index < refs.length; index += 450) {
     const batch = writeBatch(db);
-    snapshot.docs.slice(index, index + 450).forEach(item => batch.delete(item.ref));
+    refs.slice(index, index + 450).forEach(ref => batch.delete(ref));
     await batch.commit();
   }
 }
