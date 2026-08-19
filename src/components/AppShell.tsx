@@ -30,7 +30,6 @@ export function AppShell({
   initialView,
   onLocation,
   onStart,
-  onCompleteNext,
   onStop,
   onFinish,
   saving,
@@ -48,7 +47,6 @@ export function AppShell({
   initialView: View;
   onLocation: (location: ReadingLocation) => void;
   onStart: () => void;
-  onCompleteNext: () => void;
   onStop: () => void;
   onFinish: () => void;
   saving: boolean;
@@ -103,7 +101,7 @@ export function AppShell({
         {demo && <div className="demo-notice">Demo preview. Changes stay in this browser session.</div>}
         {error && <div className="error-notice">{error}</div>}
         {loading && view !== "read" && <div className="sync-notice">Syncing your reading history...</div>}
-        {view === "read" ? <Reader bible={bible} location={location} active={active} onLocation={onLocation} onStart={onStart} onCompleteNext={onCompleteNext} onStop={onStop} onFinish={onFinish} saving={saving} onDiscard={onDiscard} /> :
+        {view === "read" ? <Reader bible={bible} location={location} active={active} onLocation={onLocation} onStart={onStart} onStop={onStop} onFinish={onFinish} saving={saving} onDiscard={onDiscard} /> :
           view === "insights" ? <Insights sessions={sessions} firstName={firstName} onRead={() => navigate("read")} /> :
           <History sessions={sessions} onDelete={onDelete} />}
       </main>

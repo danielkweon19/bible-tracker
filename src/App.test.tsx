@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 vi.mock("./hooks/useAppUpdate", () => ({
@@ -15,7 +15,12 @@ vi.mock("./hooks/useBible", () => {
     version: "Test",
     books: Array.from({ length: 43 }, (_, index) => ({
       name: index === 42 ? "John" : `Book ${index + 1}`,
-      chapters: [{ verses: [{ num: 1, text: "In the beginning." }] }]
+      chapters: index === 42
+        ? [
+            { verses: [{ num: 1, text: "In the beginning." }] },
+            { verses: [{ num: 1, text: "The next chapter." }] }
+          ]
+        : [{ verses: [{ num: 1, text: "In the beginning." }] }]
     }))
   };
 
@@ -42,6 +47,10 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe("reading session timer", () => {
   it("freezes the duration when stopped and saves that final time", async () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
@@ -64,5 +73,22 @@ describe("reading session timer", () => {
       "02:05 · 1 chapter added to history"
     );
     expect(window.localStorage.getItem("selah-bible.active.demo-reader")).toBeNull();
+  });
+
+  it("tracks the starting chapter and chapters reached through navigation", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /start session/i }));
+    expect(JSON.parse(
+      window.localStorage.getItem("selah-bible.active.demo-reader") ?? "{}"
+    ).chapters).toEqual(["John 1"]);
+    expect(screen.queryByRole("button", { name: /complete/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next chapter" }));
+
+    expect(JSON.parse(
+      window.localStorage.getItem("selah-bible.active.demo-reader") ?? "{}"
+    ).chapters).toEqual(["John 1", "John 2"]);
+    expect(screen.getByText("2 chapters tracked")).toBeInTheDocument();
   });
 });

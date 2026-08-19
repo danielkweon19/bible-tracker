@@ -7,7 +7,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useBible } from "./hooks/useBible";
 import { useSessions } from "./hooks/useSessions";
 import { formatTimer } from "./lib/analytics";
-import { chapterKey, nextLocation, uniqueChapters, verseCountForKeys } from "./lib/bible";
+import { chapterKey, uniqueChapters, verseCountForKeys } from "./lib/bible";
 import { demoSessions, demoUser } from "./lib/demo";
 import { db, isFirebaseConfigured } from "./lib/firebase";
 import {
@@ -62,23 +62,24 @@ export default function App() {
   function changeLocation(next: ReadingLocation) {
     setLocation(next);
     window.localStorage.setItem(`${LOCATION_KEY}.${user!.uid}`, JSON.stringify(next));
+    if (active && active.stoppedAt === undefined && bible) {
+      const chapters = uniqueChapters([...active.chapters, chapterKey(bible, next)]);
+      if (chapters.length !== active.chapters.length) {
+        const nextActive = { ...active, chapters };
+        setActive(nextActive);
+        persistActive(nextActive);
+      }
+    }
   }
 
   function startReading() {
-    const next = { startedAt: Date.now(), chapters: [] };
+    if (!bible) return;
+    const next = {
+      startedAt: Date.now(),
+      chapters: [chapterKey(bible, location)]
+    };
     setActive(next);
     persistActive(next);
-  }
-
-  function completeAndNext() {
-    if (!active || active.stoppedAt !== undefined || !bible) return;
-    const chapters = uniqueChapters([...active.chapters, chapterKey(bible, location)]);
-    const nextActive = { ...active, chapters };
-    setActive(nextActive);
-    persistActive(nextActive);
-    const next = nextLocation(bible, location);
-    if (next) changeLocation(next);
-    else showToast("Revelation 22 marked complete.");
   }
 
   function stopReading() {
@@ -173,7 +174,6 @@ export default function App() {
         initialView="read"
         onLocation={changeLocation}
         onStart={startReading}
-        onCompleteNext={completeAndNext}
         onStop={stopReading}
         onFinish={finishReading}
         saving={saving}

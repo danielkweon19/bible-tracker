@@ -7,7 +7,10 @@ const bible: BibleData = {
   version: "Test",
   books: [{
     name: "John",
-    chapters: [{ verses: [{ num: 1, text: "In the beginning." }] }]
+    chapters: [
+      { verses: [{ num: 1, text: "In the beginning." }] },
+      { verses: [{ num: 1, text: "The next chapter." }] }
+    ]
   }]
 };
 
@@ -21,15 +24,15 @@ beforeAll(() => {
 function renderReader(active: ActiveReading, saving = false) {
   const onStop = vi.fn();
   const onFinish = vi.fn();
+  const onLocation = vi.fn();
 
-  render(
+  const result = render(
     <Reader
       bible={bible}
       location={{ bookIndex: 0, chapterIndex: 0 }}
       active={active}
-      onLocation={vi.fn()}
+      onLocation={onLocation}
       onStart={vi.fn()}
-      onCompleteNext={vi.fn()}
       onStop={onStop}
       onFinish={onFinish}
       saving={saving}
@@ -37,7 +40,7 @@ function renderReader(active: ActiveReading, saving = false) {
     />
   );
 
-  return { onStop, onFinish };
+  return { ...result, onStop, onFinish, onLocation };
 }
 
 describe("reading timer", () => {
@@ -46,6 +49,7 @@ describe("reading timer", () => {
 
     expect(screen.getByText("Reading in progress")).toBeInTheDocument();
     expect(screen.queryByText("Final time")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /complete/i })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /stop timer/i }));
 
     expect(onStop).toHaveBeenCalledOnce();
@@ -70,5 +74,23 @@ describe("reading timer", () => {
     renderReader({ startedAt: 1_000, stoppedAt: 126_000, chapters: [] }, true);
 
     expect(screen.getByRole("button", { name: /saving/i })).toBeDisabled();
+  });
+
+  it("moves to the next chapter with a horizontal swipe", () => {
+    const { container, onLocation } = renderReader({
+      startedAt: 1_000,
+      chapters: ["John 1"]
+    });
+    const reader = container.querySelector(".reader-scroll");
+
+    expect(reader).not.toBeNull();
+    fireEvent.touchStart(reader!, {
+      touches: [{ clientX: 240, clientY: 120 }]
+    });
+    fireEvent.touchEnd(reader!, {
+      changedTouches: [{ clientX: 80, clientY: 125 }]
+    });
+
+    expect(onLocation).toHaveBeenCalledWith({ bookIndex: 0, chapterIndex: 1 });
   });
 });

@@ -306,7 +306,7 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; lette
 .session-actions { display: flex; align-items: center; gap: 8px; }
 .session-actions .primary-button, .session-actions .secondary-button { min-height: 40px; font-size: 12px; }
 .discard-button { color: var(--oxblood); }
-.reader-scroll { overflow-y: auto; scroll-behavior: smooth; }
+.reader-scroll { overflow-y: auto; scroll-behavior: smooth; touch-action: pan-y; }
 .scripture { width: min(100% - 48px, 720px); margin: 0 auto; padding: 70px 0 80px; }
 .translation-label { margin-bottom: 9px; color: var(--brass); font-size: 10px; font-weight: 800; text-align: center; }
 .scripture h1 { margin-bottom: 21px; font-size: 45px; line-height: 1; text-align: center; }
@@ -489,8 +489,6 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; lette
   .session-clock svg { display: none; }
   .session-count { display: none; }
   .session-actions { margin-left: auto; gap: 4px; }
-  .session-actions .secondary-button { width: 40px; padding: 0; font-size: 0; }
-  .session-actions .secondary-button svg { width: 18px; }
   .session-actions .primary-button { padding: 0 11px; font-size: 11px; }
   .session-actions .primary-button svg { display: none; }
   .session-actions .discard-button { width: 33px; }

@@ -1,6 +1,5 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
-  BookmarkCheck,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -20,7 +19,6 @@ export function Reader({
   active,
   onLocation,
   onStart,
-  onCompleteNext,
   onStop,
   onFinish,
   saving,
@@ -31,7 +29,6 @@ export function Reader({
   active: ActiveReading | null;
   onLocation: (location: ReadingLocation) => void;
   onStart: () => void;
-  onCompleteNext: () => void;
   onStop: () => void;
   onFinish: () => void;
   saving: boolean;
@@ -40,13 +37,31 @@ export function Reader({
   const book = bible.books[location.bookIndex];
   const chapter = book.chapters[location.chapterIndex];
   const reference = chapterKey(bible, location);
-  const alreadyCompleted = active?.chapters.includes(reference) ?? false;
   const previous = useMemo(() => previousLocation(bible, location), [bible, location]);
   const next = useMemo(() => nextLocation(bible, location), [bible, location]);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     document.querySelector(".reader-scroll")?.scrollTo({ top: 0, behavior: "smooth" });
   }, [location.bookIndex, location.chapterIndex]);
+
+  function startSwipe(event: React.TouchEvent) {
+    const touch = event.touches[0];
+    if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function finishSwipe(event: React.TouchEvent) {
+    const start = touchStart.current;
+    const touch = event.changedTouches[0];
+    touchStart.current = null;
+    if (!start || !touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 60 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) return;
+    if (deltaX < 0 && next) onLocation(next);
+    if (deltaX > 0 && previous) onLocation(previous);
+  }
 
   return (
     <section className="reader-view">
@@ -84,15 +99,10 @@ export function Reader({
           ) : (
             <div className="session-clock final-time"><Clock3 size={17} /><span>Final time</span><strong>{formatTimer((active.stoppedAt - active.startedAt) / 1000)}</strong></div>
           )}
-          <span className="session-count">{active.chapters.length} completed</span>
+          <span className="session-count">{active.chapters.length} {active.chapters.length === 1 ? "chapter" : "chapters"} tracked</span>
           <div className="session-actions">
             {active.stoppedAt === undefined ? (
-              <>
-                <button className="secondary-button" onClick={onCompleteNext} disabled={alreadyCompleted && !next}>
-                  <BookmarkCheck size={17} /> {alreadyCompleted ? "Completed" : next ? "Complete & next" : "Mark complete"}
-                </button>
-                <button className="primary-button" onClick={onStop}><CircleStop size={17} /> Stop timer</button>
-              </>
+              <button className="primary-button" onClick={onStop}><CircleStop size={17} /> Stop timer</button>
             ) : (
               <button className="primary-button" onClick={onFinish} disabled={saving}>
                 {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
@@ -109,7 +119,12 @@ export function Reader({
         </div>
       )}
 
-      <article className="reader-scroll">
+      <article
+        className="reader-scroll"
+        onTouchStart={startSwipe}
+        onTouchEnd={finishSwipe}
+        onTouchCancel={() => { touchStart.current = null; }}
+      >
         <div className="scripture">
           <p className="translation-label">{bible.version}</p>
           <h1>{book.name} <span>{location.chapterIndex + 1}</span></h1>
