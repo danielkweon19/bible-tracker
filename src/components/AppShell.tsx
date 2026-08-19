@@ -74,7 +74,7 @@ export function AppShell({
   return (
     <div className="app-shell">
       <aside className={mobileMenu ? "sidebar open" : "sidebar"}>
-        <div className="brand"><BookOpen size={20} /> Selah Bible</div>
+        <div className="brand"><BookOpen size={20} /> Bible Tracker</div>
         <button className="icon-button close-menu" onClick={() => setMobileMenu(false)} aria-label="Close menu"><X /></button>
         <nav>
           <button className={view === "read" ? "active" : ""} onClick={() => navigate("read")}><Library /> Read</button>
@@ -99,8 +99,8 @@ export function AppShell({
         <button className="icon-button menu-button" onClick={() => setMobileMenu(true)} aria-label="Open menu"><Menu /></button>
         {demo && <div className="demo-notice">Demo preview. Changes stay in this browser session.</div>}
         {error && <div className="error-notice">{error}</div>}
-        {loading ? <div className="loading-state">Loading your reading history...</div> :
-          view === "read" ? <Reader bible={bible} location={location} active={active} onLocation={onLocation} onStart={onStart} onCompleteNext={onCompleteNext} onFinish={onFinish} onDiscard={onDiscard} /> :
+        {loading && view !== "read" && <div className="sync-notice">Syncing your reading history...</div>}
+        {view === "read" ? <Reader bible={bible} location={location} active={active} onLocation={onLocation} onStart={onStart} onCompleteNext={onCompleteNext} onFinish={onFinish} onDiscard={onDiscard} /> :
           view === "overview" ? <Overview sessions={sessions} firstName={firstName} onRead={() => navigate("read")} onInsights={() => navigate("insights")} onDelete={onDelete} /> :
           view === "insights" ? <Insights sessions={sessions} /> :
           <History sessions={sessions} onDelete={onDelete} />}

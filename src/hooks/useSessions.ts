@@ -5,11 +5,17 @@ import type { ReadingSession } from "../types";
 
 export function useSessions(uid: string | null, initial: ReadingSession[] = []) {
   const [sessions, setSessions] = useState<ReadingSession[]>(initial);
+  const [sessionsUid, setSessionsUid] = useState(uid);
   const [loading, setLoading] = useState(Boolean(uid && db));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!uid || !db) return;
+    if (!uid || !db) {
+      setLoading(false);
+      return;
+    }
+    setSessions([]);
+    setSessionsUid(uid);
     setLoading(true);
     return subscribeToReadingSessions(
       db,
@@ -26,5 +32,8 @@ export function useSessions(uid: string | null, initial: ReadingSession[] = []) 
     );
   }, [uid]);
 
-  return { sessions, setSessions, loading, error };
+  const visibleSessions = sessionsUid === uid ? sessions : [];
+  const isLoading = Boolean(uid && db && (loading || sessionsUid !== uid));
+
+  return { sessions: visibleSessions, setSessions, loading: isLoading, error };
 }

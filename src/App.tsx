@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BookOpen, Loader2, Settings } from "lucide-react";
 import { AuthScreen } from "./components/AuthScreen";
 import { AppShell } from "./components/AppShell";
+import { useAppUpdate } from "./hooks/useAppUpdate";
 import { useAuth } from "./hooks/useAuth";
 import { useBible } from "./hooks/useBible";
 import { useSessions } from "./hooks/useSessions";
@@ -16,6 +17,7 @@ const LOCATION_KEY = "selah-bible.location";
 const DEFAULT_LOCATION: ReadingLocation = { bookIndex: 42, chapterIndex: 0 };
 
 export default function App() {
+  useAppUpdate();
   const demo = new URLSearchParams(window.location.search).get("demo") === "1";
   const { user: firebaseUser, loading: authLoading } = useAuth();
   const { bible, error: bibleError } = useBible();
@@ -43,7 +45,7 @@ export default function App() {
 
   if (!isFirebaseConfigured && !demo) return <SetupScreen />;
   if ((authLoading && !demo) || !bible) {
-    return <div className="full-loader"><Loader2 className="spin" /><span>{bibleError ?? "Opening Selah Bible"}</span></div>;
+    return <div className="full-loader"><Loader2 className="spin" /><span>{bibleError ?? "Opening Bible Tracker"}</span></div>;
   }
   if (!user) return <AuthScreen />;
 
@@ -153,7 +155,7 @@ function SetupScreen() {
     <main className="setup-page">
       <section className="setup-card">
         <div className="setup-icon"><Settings /></div>
-        <div className="brand"><BookOpen size={20} /> Selah Bible</div>
+        <div className="brand"><BookOpen size={20} /> Bible Tracker</div>
         <p className="eyebrow">One-time setup</p>
         <h1>Connect your Firebase project</h1>
         <p>Add your Firebase web app credentials to <code>.env.local</code>, then restart the development server.</p>

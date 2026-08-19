@@ -1,0 +1,11 @@
+{
+  "id": "/",
+  "name": "Bible Tracker",
+  "short_name": "Bible",
+  "description": "Read the Bible and track your personal reading progress.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f1e9",
+  "theme_color": "#495b45"
+}

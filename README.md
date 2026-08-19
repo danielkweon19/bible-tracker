@@ -1,4 +1,4 @@
-# Selah Bible
+# Bible Tracker
 
 A responsive Bible reader that records reading time and completed chapters, then turns that history into personal insights. It is built with React, TypeScript, Vite, Firebase Authentication, Firestore, and Firebase Hosting.
 

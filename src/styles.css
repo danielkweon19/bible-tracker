@@ -247,6 +247,11 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; lette
 }
 .reader-main > .demo-notice, .reader-main > .error-notice { margin: 8px 12px 0 16px; flex: 0 0 auto; }
 .error-notice { border-color: var(--oxblood); color: #723f42; background: var(--oxblood-soft); }
+.sync-notice {
+  margin-bottom: 18px;
+  color: var(--muted);
+  font-size: 12px;
+}
 .loading-state, .full-loader { min-height: 280px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); }
 .full-loader { min-height: 100vh; flex-direction: column; background: var(--canvas); }
 
