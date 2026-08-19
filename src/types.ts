@@ -30,6 +30,7 @@ export type ReadingSession = {
 
 export type ActiveReading = {
   startedAt: number;
+  stoppedAt?: number;
   chapters: string[];
 };
 

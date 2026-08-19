@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
   BookmarkCheck,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   CircleStop,
+  Loader2,
   Play,
-  TimerReset,
+  Save,
   X
 } from "lucide-react";
 import { chapterKey, nextLocation, previousLocation } from "../lib/bible";
@@ -19,7 +21,9 @@ export function Reader({
   onLocation,
   onStart,
   onCompleteNext,
+  onStop,
   onFinish,
+  saving,
   onDiscard
 }: {
   bible: BibleData;
@@ -28,22 +32,17 @@ export function Reader({
   onLocation: (location: ReadingLocation) => void;
   onStart: () => void;
   onCompleteNext: () => void;
+  onStop: () => void;
   onFinish: () => void;
+  saving: boolean;
   onDiscard: () => void;
 }) {
-  const [, tick] = useState(0);
   const book = bible.books[location.bookIndex];
   const chapter = book.chapters[location.chapterIndex];
   const reference = chapterKey(bible, location);
   const alreadyCompleted = active?.chapters.includes(reference) ?? false;
   const previous = useMemo(() => previousLocation(bible, location), [bible, location]);
   const next = useMemo(() => nextLocation(bible, location), [bible, location]);
-
-  useEffect(() => {
-    if (!active) return;
-    const timer = window.setInterval(() => tick(value => value + 1), 1000);
-    return () => window.clearInterval(timer);
-  }, [active]);
 
   useEffect(() => {
     document.querySelector(".reader-scroll")?.scrollTo({ top: 0, behavior: "smooth" });
@@ -80,13 +79,26 @@ export function Reader({
 
       {active ? (
         <div className="session-bar">
-          <div className="session-clock"><span className="live-dot" /><TimerReset size={17} /><strong>{formatTimer((Date.now() - active.startedAt) / 1000)}</strong></div>
+          {active.stoppedAt === undefined ? (
+            <div className="session-status"><span className="live-dot" /><strong>Reading in progress</strong></div>
+          ) : (
+            <div className="session-clock final-time"><Clock3 size={17} /><span>Final time</span><strong>{formatTimer((active.stoppedAt - active.startedAt) / 1000)}</strong></div>
+          )}
           <span className="session-count">{active.chapters.length} completed</span>
           <div className="session-actions">
-            <button className="secondary-button" onClick={onCompleteNext} disabled={alreadyCompleted && !next}>
-              <BookmarkCheck size={17} /> {alreadyCompleted ? "Completed" : next ? "Complete & next" : "Mark complete"}
-            </button>
-            <button className="primary-button" onClick={onFinish}><CircleStop size={17} /> Finish & save</button>
+            {active.stoppedAt === undefined ? (
+              <>
+                <button className="secondary-button" onClick={onCompleteNext} disabled={alreadyCompleted && !next}>
+                  <BookmarkCheck size={17} /> {alreadyCompleted ? "Completed" : next ? "Complete & next" : "Mark complete"}
+                </button>
+                <button className="primary-button" onClick={onStop}><CircleStop size={17} /> Stop timer</button>
+              </>
+            ) : (
+              <button className="primary-button" onClick={onFinish} disabled={saving}>
+                {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
+                {saving ? "Saving..." : "Save session"}
+              </button>
+            )}
             <button className="icon-button discard-button" onClick={onDiscard} title="Discard reading session" aria-label="Discard reading session"><X /></button>
           </div>
         </div>

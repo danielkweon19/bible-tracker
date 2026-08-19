@@ -172,13 +172,14 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; lette
   border: 1px solid #d3d8d1;
   border-radius: 7px;
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr);
+  grid-template-columns: 17px minmax(0, 1fr);
   align-items: center;
   gap: 9px;
   color: var(--ink);
   background: rgba(255,255,255,.5);
   text-align: left;
 }
+.active-reading-card .stopped-icon { width: 17px; color: var(--forest); }
 .active-reading-card strong, .active-reading-card small { display: block; }
 .active-reading-card strong { font-size: 11px; }
 .active-reading-card small { margin-top: 4px; color: var(--muted); font-size: 10px; }
@@ -296,8 +297,11 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; lette
 .session-start strong { color: var(--forest-dark); font-family: Georgia, "Times New Roman", serif; font-size: 16px; }
 .session-start span { margin-top: 4px; color: #6d776f; font-size: 10px; }
 .session-bar { background: #eff1eb; }
+.session-status { display: flex; align-items: center; gap: 9px; color: var(--forest-dark); }
+.session-status strong { font-size: 13px; }
 .session-clock { display: flex; align-items: center; gap: 8px; color: var(--forest-dark); font-variant-numeric: tabular-nums; }
 .session-clock strong { min-width: 66px; font-size: 15px; }
+.final-time span { color: var(--muted); font-size: 11px; }
 .session-count { color: var(--muted); font-size: 11px; }
 .session-actions { display: flex; align-items: center; gap: 8px; }
 .session-actions .primary-button, .session-actions .secondary-button { min-height: 40px; font-size: 12px; }
@@ -409,6 +413,28 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; lette
 .history-mark { width: 61px; height: 61px; border-radius: 50%; display: grid; place-items: center; color: var(--forest); background: var(--forest-soft); }
 
 /* Setup and feedback */
+.save-confirmation {
+  position: fixed;
+  z-index: 90;
+  right: 22px;
+  bottom: 22px;
+  max-width: calc(100vw - 32px);
+  min-width: min(340px, calc(100vw - 32px));
+  padding: 15px 17px;
+  border: 1px solid #cbd9ce;
+  border-radius: 7px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  color: var(--forest-dark);
+  background: #f4f8f3;
+  box-shadow: 0 13px 38px rgba(0,0,0,.18);
+}
+.save-confirmation > svg { width: 22px; color: var(--forest); }
+.save-confirmation strong, .save-confirmation small { display: block; }
+.save-confirmation strong { font-size: 13px; }
+.save-confirmation small { margin-top: 4px; color: #53645a; font-size: 11px; }
 .toast {
   position: fixed;
   z-index: 90;
@@ -473,6 +499,7 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; lette
   .session-start strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
   .session-start .primary-button { min-height: 40px; padding: 0 12px; font-size: 12px; }
   .session-bar { align-items: center; gap: 5px; }
+  .session-status strong { display: none; }
   .session-clock svg { display: none; }
   .session-count { display: none; }
   .session-actions { margin-left: auto; gap: 4px; }
@@ -513,6 +540,7 @@ h1, h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; lette
   .auth-card h2 { font-size: 36px; }
   .setup-card { padding: 31px 23px; }
   .setup-card h1 { font-size: 35px; }
+  .save-confirmation { right: 16px; bottom: 14px; }
   .toast { bottom: 14px; }
 }
 

@@ -33,7 +33,9 @@ function renderShell() {
       onLocation={vi.fn()}
       onStart={vi.fn()}
       onCompleteNext={vi.fn()}
+      onStop={vi.fn()}
       onFinish={vi.fn()}
+      saving={false}
       onDiscard={vi.fn()}
       onDelete={vi.fn()}
     />

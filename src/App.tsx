@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Loader2, Settings } from "lucide-react";
+import { BookOpen, CheckCircle2, Loader2, Settings } from "lucide-react";
 import { AuthScreen } from "./components/AuthScreen";
 import { AppShell } from "./components/AppShell";
 import { useAppUpdate } from "./hooks/useAppUpdate";
 import { useAuth } from "./hooks/useAuth";
 import { useBible } from "./hooks/useBible";
 import { useSessions } from "./hooks/useSessions";
+import { formatTimer } from "./lib/analytics";
 import { chapterKey, nextLocation, uniqueChapters, verseCountForKeys } from "./lib/bible";
 import { demoSessions, demoUser } from "./lib/demo";
 import { db, isFirebaseConfigured } from "./lib/firebase";
@@ -26,6 +27,8 @@ export default function App() {
   const { sessions, setSessions, loading, error } = useSessions(uid, demo ? demoSessions : []);
   const [location, setLocation] = useState<ReadingLocation>(DEFAULT_LOCATION);
   const [active, setActive] = useState<ActiveReading | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [savedConfirmation, setSavedConfirmation] = useState("");
   const [toast, setToast] = useState("");
 
   useEffect(() => {
@@ -39,6 +42,7 @@ export default function App() {
     if (
       storedActive &&
       Number.isFinite(storedActive.startedAt) &&
+      (storedActive.stoppedAt === undefined || Number.isFinite(storedActive.stoppedAt)) &&
       Array.isArray(storedActive.chapters)
     ) setActive(storedActive);
   }, [user?.uid, bible]);
@@ -61,7 +65,7 @@ export default function App() {
   }
 
   function completeAndNext() {
-    if (!active || !bible) return;
+    if (!active || active.stoppedAt !== undefined || !bible) return;
     const chapters = uniqueChapters([...active.chapters, chapterKey(bible, location)]);
     const nextActive = { ...active, chapters };
     setActive(nextActive);
@@ -71,11 +75,22 @@ export default function App() {
     else showToast("Revelation 22 marked complete.");
   }
 
+  function stopReading() {
+    if (!active || active.stoppedAt !== undefined) return;
+    const stopped = { ...active, stoppedAt: Date.now() };
+    setActive(stopped);
+    persistActive(stopped);
+  }
+
   async function finishReading() {
-    if (!active || !bible) return;
+    if (!active || !bible || saving) return;
     const chapters = uniqueChapters([...active.chapters, chapterKey(bible, location)]);
-    const durationSeconds = Math.max(1, Math.floor((Date.now() - active.startedAt) / 1000));
+    const durationSeconds = Math.max(
+      1,
+      Math.floor(((active.stoppedAt ?? Date.now()) - active.startedAt) / 1000)
+    );
     const verseCount = verseCountForKeys(bible, chapters);
+    setSaving(true);
     try {
       if (demo) {
         const session: ReadingSession = {
@@ -91,9 +106,13 @@ export default function App() {
         await addReadingSession(db, user!.uid, durationSeconds, chapters, verseCount);
       }
       clearActive();
-      showToast(`${chapters.length} ${chapters.length === 1 ? "chapter" : "chapters"} saved to your history.`);
+      showSavedConfirmation(
+        `${formatTimer(durationSeconds)} · ${chapters.length} ${chapters.length === 1 ? "chapter" : "chapters"} added to history`
+      );
     } catch {
-      showToast("This reading session could not be saved.");
+      showToast("Session not saved. Please try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -126,6 +145,11 @@ export default function App() {
     window.setTimeout(() => setToast(""), 3200);
   }
 
+  function showSavedConfirmation(message: string) {
+    setSavedConfirmation(message);
+    window.setTimeout(() => setSavedConfirmation(""), 4200);
+  }
+
   return (
     <>
       <AppShell
@@ -141,10 +165,18 @@ export default function App() {
         onLocation={changeLocation}
         onStart={startReading}
         onCompleteNext={completeAndNext}
+        onStop={stopReading}
         onFinish={finishReading}
+        saving={saving}
         onDiscard={discardReading}
         onDelete={deleteSession}
       />
+      {savedConfirmation && (
+        <div className="save-confirmation" role="status">
+          <CheckCircle2 />
+          <span><strong>Session saved</strong><small>{savedConfirmation}</small></span>
+        </div>
+      )}
       {toast && <div className="toast" role="status">{toast}</div>}
     </>
   );

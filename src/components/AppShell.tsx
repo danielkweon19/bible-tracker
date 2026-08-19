@@ -3,6 +3,7 @@ import { signOut, type User } from "firebase/auth";
 import {
   BarChart3,
   BookOpen,
+  CheckCircle2,
   ChevronDown,
   History as HistoryIcon,
   Library,
@@ -31,7 +32,9 @@ export function AppShell({
   onLocation,
   onStart,
   onCompleteNext,
+  onStop,
   onFinish,
+  saving,
   onDiscard,
   onDelete
 }: {
@@ -47,7 +50,9 @@ export function AppShell({
   onLocation: (location: ReadingLocation) => void;
   onStart: () => void;
   onCompleteNext: () => void;
+  onStop: () => void;
   onFinish: () => void;
+  saving: boolean;
   onDiscard: () => void;
   onDelete: (id: string) => void;
 }) {
@@ -82,7 +87,7 @@ export function AppShell({
           <button className={view === "insights" ? "active" : ""} onClick={() => navigate("insights")}><LineChart /> Insights</button>
           <button className={view === "history" ? "active" : ""} onClick={() => navigate("history")}><HistoryIcon /> History</button>
         </nav>
-        {active && <button className="active-reading-card" onClick={() => navigate("read")}><span className="live-dot" /><span><strong>Reading in progress</strong><small>{bible.books[location.bookIndex].name} {location.chapterIndex + 1}</small></span></button>}
+        {active && <button className="active-reading-card" onClick={() => navigate("read")}>{active.stoppedAt === undefined ? <span className="live-dot" /> : <CheckCircle2 className="stopped-icon" />}<span><strong>{active.stoppedAt === undefined ? "Reading in progress" : "Session ready to save"}</strong><small>{bible.books[location.bookIndex].name} {location.chapterIndex + 1}</small></span></button>}
         <div className="user-menu" ref={menuRef}>
           <button className="user-trigger" onClick={() => setAccountMenu(open => !open)} aria-expanded={accountMenu}>
             <Avatar user={user} />
@@ -100,7 +105,7 @@ export function AppShell({
         {demo && <div className="demo-notice">Demo preview. Changes stay in this browser session.</div>}
         {error && <div className="error-notice">{error}</div>}
         {loading && view !== "read" && <div className="sync-notice">Syncing your reading history...</div>}
-        {view === "read" ? <Reader bible={bible} location={location} active={active} onLocation={onLocation} onStart={onStart} onCompleteNext={onCompleteNext} onFinish={onFinish} onDiscard={onDiscard} /> :
+        {view === "read" ? <Reader bible={bible} location={location} active={active} onLocation={onLocation} onStart={onStart} onCompleteNext={onCompleteNext} onStop={onStop} onFinish={onFinish} saving={saving} onDiscard={onDiscard} /> :
           view === "overview" ? <Overview sessions={sessions} firstName={firstName} onRead={() => navigate("read")} onInsights={() => navigate("insights")} onDelete={onDelete} /> :
           view === "insights" ? <Insights sessions={sessions} /> :
           <History sessions={sessions} onDelete={onDelete} />}
