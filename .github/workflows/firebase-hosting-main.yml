@@ -53,5 +53,5 @@ jobs:
           workload_identity_provider: projects/831553702914/locations/global/workloadIdentityPools/github/providers/github
           service_account: github-firebase-hosting@bible-tracker-8434e.iam.gserviceaccount.com
 
-      - name: Deploy Firebase
-        run: npx firebase deploy --only hosting:jbch-bible-tracker,firestore:rules --project bible-tracker-8434e --non-interactive
+      - name: Deploy live site
+        run: npx firebase deploy --only hosting:jbch-bible-tracker --project bible-tracker-8434e --non-interactive
