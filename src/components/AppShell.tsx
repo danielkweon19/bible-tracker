@@ -33,7 +33,8 @@ export function AppShell({
   onStop,
   onFinish,
   onDiscard,
-  onDelete
+  onDelete,
+  onClearHistory
 }: {
   user: Pick<User, "uid" | "displayName" | "email" | "photoURL">;
   bible: BibleData;
@@ -50,6 +51,7 @@ export function AppShell({
   onFinish: () => void;
   onDiscard: () => void;
   onDelete: (id: string) => void;
+  onClearHistory: () => void;
 }) {
   const [view, setView] = useState<View>(initialView);
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -101,7 +103,7 @@ export function AppShell({
         {loading && view !== "read" && <div className="sync-notice">Syncing your reading history...</div>}
         {view === "read" ? <Reader bible={bible} location={location} active={active} onLocation={onLocation} onStart={onStart} onStop={onStop} onFinish={onFinish} onDiscard={onDiscard} /> :
           view === "insights" ? <Insights sessions={sessions} firstName={firstName} onRead={() => navigate("read")} /> :
-          <History sessions={sessions} onDelete={onDelete} />}
+          <History sessions={sessions} onDelete={onDelete} onClear={onClearHistory} />}
       </main>
     </div>
   );

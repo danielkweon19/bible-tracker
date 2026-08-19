@@ -92,4 +92,15 @@ describe("reading session timer", () => {
     ).chapters).toEqual(["John 1", "John 2"]);
     expect(screen.getByText("2 chapters tracked")).toBeInTheDocument();
   });
+
+  it("clears the complete reading history after confirmation", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /history/i }));
+    fireEvent.click(screen.getByRole("button", { name: /clear history/i }));
+
+    expect(screen.getByText("No reading sessions yet")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Reading history cleared.");
+  });
 });

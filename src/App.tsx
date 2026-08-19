@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookOpen, CheckCircle2, Loader2, Settings } from "lucide-react";
 import { AuthScreen } from "./components/AuthScreen";
 import { AppShell } from "./components/AppShell";
@@ -10,8 +10,10 @@ import { formatTimer } from "./lib/analytics";
 import { chapterKey, uniqueChapters, verseCountForKeys } from "./lib/bible";
 import { demoSessions, demoUser } from "./lib/demo";
 import { db, isFirebaseConfigured } from "./lib/firebase";
+import { saveReadingState, subscribeToReadingState } from "./lib/readingState";
 import {
   addReadingSession,
+  clearReadingSessions,
   removeReadingSession
 } from "./lib/sessions";
 import type { ActiveReading, ReadingLocation, ReadingSession } from "./types";
@@ -33,6 +35,7 @@ export default function App() {
   const [active, setActive] = useState<ActiveReading | null>(null);
   const [savedConfirmation, setSavedConfirmation] = useState<SaveConfirmation | null>(null);
   const [toast, setToast] = useState("");
+  const submittedSessions = useRef(new Set<number>());
 
   useEffect(() => {
     if (!user || !bible) return;
@@ -50,6 +53,29 @@ export default function App() {
     ) setActive(storedActive);
   }, [user?.uid, bible]);
 
+  useEffect(() => {
+    const accountDb = db;
+    if (!uid || !accountDb || !bible) return;
+    return subscribeToReadingState(
+      accountDb,
+      uid,
+      (accountState, fromCache) => {
+        if (!accountState) {
+          if (fromCache) return;
+          const fallbackLocation = readStoredLocation(user!.uid, bible) ?? DEFAULT_LOCATION;
+          const fallbackActive = readStoredActive(user!.uid);
+          void saveReadingState(accountDb, uid, fallbackLocation, fallbackActive);
+          return;
+        }
+        if (!bible.books[accountState.location.bookIndex]?.chapters[accountState.location.chapterIndex]) return;
+        setLocation(accountState.location);
+        setActive(accountState.active);
+        persistLocalState(user!.uid, accountState.location, accountState.active);
+      },
+      () => showToast("Your reading progress could not sync across devices.")
+    );
+  }, [uid, bible]);
+
   if (!isFirebaseConfigured && !demo) return <SetupScreen />;
   if ((authLoading && !demo) || !bible) {
     return <div className="full-loader"><Loader2 className="spin" /><span>{bibleError ?? "Opening Bible Tracker"}</span></div>;
@@ -58,15 +84,15 @@ export default function App() {
 
   function changeLocation(next: ReadingLocation) {
     setLocation(next);
-    window.localStorage.setItem(`${LOCATION_KEY}.${user!.uid}`, JSON.stringify(next));
+    let nextActive = active;
     if (active && active.stoppedAt === undefined && bible) {
       const chapters = uniqueChapters([...active.chapters, chapterKey(bible, next)]);
       if (chapters.length !== active.chapters.length) {
-        const nextActive = { ...active, chapters };
+        nextActive = { ...active, chapters };
         setActive(nextActive);
-        persistActive(nextActive);
       }
     }
+    persistReadingState(next, nextActive);
   }
 
   function startReading() {
@@ -76,19 +102,21 @@ export default function App() {
       chapters: [chapterKey(bible, location)]
     };
     setActive(next);
-    persistActive(next);
+    persistReadingState(location, next);
   }
 
   function stopReading() {
     if (!active || active.stoppedAt !== undefined) return;
     const stopped = { ...active, stoppedAt: Date.now() };
     setActive(stopped);
-    persistActive(stopped);
+    persistReadingState(location, stopped);
   }
 
   function finishReading() {
     if (!active || !bible) return;
     const sessionToSave = active;
+    if (submittedSessions.current.has(sessionToSave.startedAt)) return;
+    submittedSessions.current.add(sessionToSave.startedAt);
     const chapters = uniqueChapters([...active.chapters, chapterKey(bible, location)]);
     const durationSeconds = Math.max(
       1,
@@ -100,7 +128,7 @@ export default function App() {
     try {
       if (demo) {
         const session: ReadingSession = {
-          id: `demo-${Date.now()}`,
+          id: `demo-${active.startedAt}`,
           uid: user!.uid,
           durationSeconds,
           chapters,
@@ -109,7 +137,7 @@ export default function App() {
         };
         setSessions(current => [session, ...current]);
       } else if (db) {
-        void addReadingSession(db, user!.uid, durationSeconds, chapters, verseCount)
+        void addReadingSession(db, user!.uid, active.startedAt, durationSeconds, chapters, verseCount)
           .catch(() => recoverFailedSave(sessionToSave));
       }
       clearActive();
@@ -117,15 +145,17 @@ export default function App() {
         ? { title: "Session saved", detail: `${sessionSummary} added to history` }
         : { title: "Saved on this device", detail: `${sessionSummary} · Will sync automatically` });
     } catch {
+      submittedSessions.current.delete(sessionToSave.startedAt);
       showToast("Session not saved. Please try again.");
     }
   }
 
   function recoverFailedSave(session: ActiveReading) {
+    submittedSessions.current.delete(session.startedAt);
     setSavedConfirmation(null);
     setActive(current => {
       if (current) return current;
-      persistActive(session);
+      persistReadingState(location, session);
       return session;
     });
     showToast("Session could not sync. It is ready to retry.");
@@ -146,13 +176,28 @@ export default function App() {
     }
   }
 
-  function persistActive(next: ActiveReading) {
-    window.localStorage.setItem(`${ACTIVE_KEY}.${user!.uid}`, JSON.stringify(next));
+  async function clearHistory() {
+    if (!window.confirm("Clear your entire reading history? This cannot be undone.")) return;
+    try {
+      if (demo) setSessions([]);
+      else if (db && user) await clearReadingSessions(db, user.uid);
+      showToast("Reading history cleared.");
+    } catch {
+      showToast("Your reading history could not be cleared.");
+    }
+  }
+
+  function persistReadingState(nextLocation: ReadingLocation, nextActive: ActiveReading | null) {
+    persistLocalState(user!.uid, nextLocation, nextActive);
+    if (uid && db) {
+      void saveReadingState(db, uid, nextLocation, nextActive)
+        .catch(() => showToast("Your reading progress could not sync across devices."));
+    }
   }
 
   function clearActive() {
-    window.localStorage.removeItem(`${ACTIVE_KEY}.${user!.uid}`);
     setActive(null);
+    persistReadingState(location, null);
   }
 
   function showToast(message: string) {
@@ -183,6 +228,7 @@ export default function App() {
         onFinish={finishReading}
         onDiscard={discardReading}
         onDelete={deleteSession}
+        onClearHistory={clearHistory}
       />
       {savedConfirmation && (
         <div className="save-confirmation" role="status">
@@ -222,4 +268,31 @@ function readJson<T>(key: string): T | null {
   } catch {
     return null;
   }
+}
+
+function readStoredLocation(uid: string, bible: NonNullable<ReturnType<typeof useBible>["bible"]>) {
+  const stored = readJson<ReadingLocation>(`${LOCATION_KEY}.${uid}`);
+  return stored && bible.books[stored.bookIndex]?.chapters[stored.chapterIndex]
+    ? stored
+    : null;
+}
+
+function readStoredActive(uid: string): ActiveReading | null {
+  const stored = readJson<ActiveReading>(`${ACTIVE_KEY}.${uid}`);
+  return stored &&
+    Number.isFinite(stored.startedAt) &&
+    (stored.stoppedAt === undefined || Number.isFinite(stored.stoppedAt)) &&
+    Array.isArray(stored.chapters)
+    ? stored
+    : null;
+}
+
+function persistLocalState(
+  uid: string,
+  location: ReadingLocation,
+  active: ActiveReading | null
+) {
+  window.localStorage.setItem(`${LOCATION_KEY}.${uid}`, JSON.stringify(location));
+  if (active) window.localStorage.setItem(`${ACTIVE_KEY}.${uid}`, JSON.stringify(active));
+  else window.localStorage.removeItem(`${ACTIVE_KEY}.${uid}`);
 }

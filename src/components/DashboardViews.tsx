@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import {
   BarChart3,
   BookCheck,
@@ -70,15 +71,25 @@ export function Insights({
 
 export function History({
   sessions,
-  onDelete
+  onDelete,
+  onClear
 }: {
   sessions: ReadingSession[];
   onDelete: (id: string) => void;
+  onClear: () => void;
 }) {
   const stats = calculateReadingStats(sessions);
   return (
     <div className="dashboard-view">
-      <PageHeader eyebrow="Reading journal" title="Your reading history" />
+      <PageHeader
+        eyebrow="Reading journal"
+        title="Your reading history"
+        action={sessions.length ? (
+          <button className="secondary-button clear-history-button" onClick={onClear}>
+            <Trash2 size={17} /><span>Clear history</span>
+          </button>
+        ) : undefined}
+      />
       <section className="panel history-panel">
         <div className="history-summary">
           <div><p className="eyebrow">All time</p><h2>{formatDuration(stats.totalSeconds, true)}</h2><span>{stats.sessionCount} sessions · {stats.chaptersRead} chapters</span></div>
@@ -103,17 +114,72 @@ function SessionList({ sessions, onDelete }: { sessions: ReadingSession[]; onDel
   return <div className="session-list">
     {sessions.map(session => {
       const date = sessionDate(session);
-      return <div className="session-row" key={session.id}>
+      return (
+        <SessionRow
+          key={session.id}
+          session={session}
+          date={date}
+          onDelete={() => onDelete(session.id)}
+        />
+      );
+    })}
+  </div>;
+}
+
+function SessionRow({
+  session,
+  date,
+  onDelete
+}: {
+  session: ReadingSession;
+  date: Date | null;
+  onDelete: () => void;
+}) {
+  const [revealed, setRevealed] = useState(false);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const chapterLabel = formatChapters(session.chapters);
+
+  function finishSwipe(event: React.TouchEvent) {
+    const start = touchStart.current;
+    const touch = event.changedTouches[0];
+    touchStart.current = null;
+    if (!start || !touch) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 45 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+    if (deltaX < 0) setRevealed(true);
+    if (deltaX > 0) setRevealed(false);
+  }
+
+  return (
+    <div className={revealed ? "session-row-wrap revealed" : "session-row-wrap"}>
+      <button
+        className="swipe-delete-button"
+        onClick={onDelete}
+        aria-label={`Delete ${chapterLabel}`}
+        tabIndex={revealed ? 0 : -1}
+      >
+        <Trash2 size={17} /><span>Delete</span>
+      </button>
+      <div
+        className="session-row"
+        onTouchStart={event => {
+          const touch = event.touches[0];
+          if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY };
+        }}
+        onTouchEnd={finishSwipe}
+        onTouchCancel={() => { touchStart.current = null; }}
+      >
         <div className="session-symbol"><BookCheck size={17} /></div>
         <div className="session-main">
-          <strong>{formatChapters(session.chapters)}</strong>
+          <strong>{chapterLabel}</strong>
           <span>{date ? formatDate(date) : "Just now"} · {formatDuration(session.durationSeconds)}</span>
         </div>
         <span className="verse-total">{session.verseCount} verses</span>
-        <button className="icon-button delete-button" onClick={() => onDelete(session.id)} title="Delete session" aria-label="Delete session"><Trash2 size={16} /></button>
-      </div>;
-    })}
-  </div>;
+        <button className="icon-button delete-button" onClick={onDelete} title="Delete session" aria-label="Delete session"><Trash2 size={16} /></button>
+      </div>
+    </div>
+  );
 }
 
 function formatChapters(chapters: string[]): string {

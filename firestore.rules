@@ -27,11 +27,47 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
     }
 
+    function validReadingState(uid) {
+      return request.resource.data.keys().hasOnly([
+          "uid",
+          "bookIndex",
+          "chapterIndex",
+          "activeStartedAt",
+          "activeStoppedAt",
+          "activeChapters",
+          "updatedAt"
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.bookIndex is int
+        && request.resource.data.bookIndex >= 0
+        && request.resource.data.bookIndex < 100
+        && request.resource.data.chapterIndex is int
+        && request.resource.data.chapterIndex >= 0
+        && request.resource.data.chapterIndex < 200
+        && (request.resource.data.activeStartedAt == null
+          || request.resource.data.activeStartedAt is int)
+        && (request.resource.data.activeStoppedAt == null
+          || request.resource.data.activeStoppedAt is int)
+        && request.resource.data.activeChapters is list
+        && request.resource.data.activeChapters.size() <= 50
+        && request.resource.data.updatedAt == request.time;
+    }
+
     match /readingSessions/{sessionId} {
       allow read: if signedIn() && resource.data.uid == request.auth.uid;
       allow create: if signedIn() && validSession();
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
-      allow update: if false;
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && validSession()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["createdAt"]);
+    }
+
+    match /readingStates/{uid} {
+      allow read: if signedIn() && uid == request.auth.uid;
+      allow create, update: if signedIn() && validReadingState(uid);
+      allow delete: if signedIn() && uid == request.auth.uid;
     }
   }
 }
