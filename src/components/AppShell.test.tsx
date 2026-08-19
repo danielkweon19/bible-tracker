@@ -8,8 +8,7 @@ vi.mock("./Reader", () => ({
 }));
 
 vi.mock("./DashboardViews", () => ({
-  Overview: () => <div>Overview content</div>,
-  Insights: () => <div>Insights content</div>,
+  Insights: () => <div>Combined insights content</div>,
   History: () => <div>History content</div>
 }));
 
@@ -52,4 +51,13 @@ test("keeps views usable while reading history syncs", () => {
 
   expect(screen.getByText("History content")).toBeInTheDocument();
   expect(screen.getByText(/syncing your reading history/i)).toBeInTheDocument();
+});
+
+test("uses one combined insights destination", () => {
+  renderShell();
+
+  expect(screen.queryByRole("button", { name: /overview/i })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /insights/i }));
+
+  expect(screen.getByText("Combined insights content")).toBeInTheDocument();
 });

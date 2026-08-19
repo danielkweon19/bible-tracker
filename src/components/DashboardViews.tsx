@@ -3,9 +3,7 @@ import {
   BookCheck,
   BookMarked,
   CalendarDays,
-  Clock3,
   Flame,
-  Gauge,
   Sparkles,
   Trash2
 } from "lucide-react";
@@ -13,25 +11,23 @@ import { calculateReadingStats, dailyActivity, formatDuration, readingInsights }
 import { sessionDate } from "../lib/sessions";
 import type { ReadingSession } from "../types";
 
-export function Overview({
+export function Insights({
   sessions,
   firstName,
-  onRead,
-  onInsights,
-  onDelete
+  onRead
 }: {
   sessions: ReadingSession[];
   firstName: string;
   onRead: () => void;
-  onInsights: () => void;
-  onDelete: (id: string) => void;
 }) {
   const stats = calculateReadingStats(sessions);
-  const activity = dailyActivity(sessions, 7);
+  const insights = readingInsights(sessions);
+  const activity = dailyActivity(sessions, 14);
+  const max = Math.max(...activity.map(point => point.seconds), 1);
   return (
     <div className="dashboard-view">
-      <PageHeader eyebrow="Reading overview" title={`${greeting()}, ${firstName}.`} action={<button className="primary-button" onClick={onRead}><BookMarked size={18} /> Continue reading</button>} />
-      <section className="overview-lead">
+      <PageHeader eyebrow={`${greeting()}, ${firstName}`} title="Your reading insights" action={<button className="primary-button" onClick={onRead}><BookMarked size={18} /> Continue reading</button>} />
+      <section className="insights-lead">
         <div>
           <p className="eyebrow">This week</p>
           <h2>{formatDuration(stats.weekSeconds, true)} in the Word</h2>
@@ -39,34 +35,6 @@ export function Overview({
         </div>
         <Flame size={54} />
       </section>
-      <section className="stat-grid">
-        <Stat icon={<Clock3 />} label="Reading time" value={formatDuration(stats.totalSeconds, true)} note={`${stats.sessionCount} sessions`} />
-        <Stat icon={<BookCheck />} label="Chapters read" value={String(stats.chaptersRead)} note={`${stats.uniqueChapters} unique`} />
-        <Stat icon={<Flame />} label="Current streak" value={`${stats.streakDays} days`} note="Consecutive reading days" />
-        <Stat icon={<Gauge />} label="Average pace" value={formatDuration(stats.averageSecondsPerChapter)} note="Per chapter" />
-      </section>
-      <section className="overview-grid">
-        <article className="panel">
-          <div className="panel-heading"><div><p className="eyebrow">Last 7 days</p><h2>Reading rhythm</h2></div><span>{formatDuration(stats.weekSeconds, true)}</span></div>
-          <ActivityBars points={activity} />
-        </article>
-        <article className="panel recent-panel">
-          <div className="panel-heading"><div><p className="eyebrow">Latest</p><h2>Recent reading</h2></div><button className="text-button" onClick={onInsights}>View insights</button></div>
-          <SessionList sessions={sessions.slice(0, 4)} onDelete={onDelete} compact />
-        </article>
-      </section>
-    </div>
-  );
-}
-
-export function Insights({ sessions }: { sessions: ReadingSession[] }) {
-  const stats = calculateReadingStats(sessions);
-  const insights = readingInsights(sessions);
-  const activity = dailyActivity(sessions, 14);
-  const max = Math.max(...activity.map(point => point.seconds), 1);
-  return (
-    <div className="dashboard-view">
-      <PageHeader eyebrow="Personal analytics" title="Your reading insights" />
       <section className="insight-grid">
         <Insight label="Most-read book" value={insights.topBook ?? "Building a baseline"} note={insights.topBook ? `${insights.topBookChapters} chapters recorded` : "Finish your first session"} />
         <Insight label="Usual reading time" value={insights.preferredPart ?? "Not enough data"} note={insights.preferredDay ? `Most often on ${insights.preferredDay}` : "Your pattern will appear here"} />
@@ -126,29 +94,13 @@ function PageHeader({ eyebrow, title, action }: { eyebrow: string; title: string
   return <header className="page-header"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1></div>{action}</header>;
 }
 
-function Stat({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: string; note: string }) {
-  return <article className="stat-card"><div className="stat-icon">{icon}</div><p>{label}</p><strong>{value}</strong><span>{note}</span></article>;
-}
-
 function Insight({ label, value, note }: { label: string; value: string; note: string }) {
   return <article className="insight-card"><p>{label}</p><strong>{value}</strong><span>{note}</span></article>;
 }
 
-function ActivityBars({ points }: { points: ReturnType<typeof dailyActivity> }) {
-  const max = Math.max(...points.map(point => point.seconds), 1);
-  return <div className="activity-bars">
-    {points.map((point, index) => (
-      <div className="activity-day" key={point.date.toISOString()}>
-        <div className="bar-track"><span style={{ height: `${Math.max(point.seconds ? 8 : 0, (point.seconds / max) * 100)}%` }} /></div>
-        <small className={index === points.length - 1 ? "today" : ""}>{point.date.toLocaleDateString(undefined, { weekday: "narrow" })}</small>
-      </div>
-    ))}
-  </div>;
-}
-
-function SessionList({ sessions, onDelete, compact = false }: { sessions: ReadingSession[]; onDelete: (id: string) => void; compact?: boolean }) {
+function SessionList({ sessions, onDelete }: { sessions: ReadingSession[]; onDelete: (id: string) => void }) {
   if (!sessions.length) return <div className="empty-state"><BookMarked /><strong>No reading sessions yet</strong><span>Your first saved chapter will appear here.</span></div>;
-  return <div className={compact ? "session-list compact" : "session-list"}>
+  return <div className="session-list">
     {sessions.map(session => {
       const date = sessionDate(session);
       return <div className="session-row" key={session.id}>

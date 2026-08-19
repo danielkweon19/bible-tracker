@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { signOut, type User } from "firebase/auth";
 import {
-  BarChart3,
   BookOpen,
   CheckCircle2,
   ChevronDown,
@@ -14,10 +13,10 @@ import {
 } from "lucide-react";
 import { auth } from "../lib/firebase";
 import type { ActiveReading, BibleData, ReadingLocation, ReadingSession } from "../types";
-import { History, Insights, Overview } from "./DashboardViews";
+import { History, Insights } from "./DashboardViews";
 import { Reader } from "./Reader";
 
-export type View = "read" | "overview" | "insights" | "history";
+export type View = "read" | "insights" | "history";
 
 export function AppShell({
   user,
@@ -83,7 +82,6 @@ export function AppShell({
         <button className="icon-button close-menu" onClick={() => setMobileMenu(false)} aria-label="Close menu"><X /></button>
         <nav>
           <button className={view === "read" ? "active" : ""} onClick={() => navigate("read")}><Library /> Read</button>
-          <button className={view === "overview" ? "active" : ""} onClick={() => navigate("overview")}><BarChart3 /> Overview</button>
           <button className={view === "insights" ? "active" : ""} onClick={() => navigate("insights")}><LineChart /> Insights</button>
           <button className={view === "history" ? "active" : ""} onClick={() => navigate("history")}><HistoryIcon /> History</button>
         </nav>
@@ -106,8 +104,7 @@ export function AppShell({
         {error && <div className="error-notice">{error}</div>}
         {loading && view !== "read" && <div className="sync-notice">Syncing your reading history...</div>}
         {view === "read" ? <Reader bible={bible} location={location} active={active} onLocation={onLocation} onStart={onStart} onCompleteNext={onCompleteNext} onStop={onStop} onFinish={onFinish} saving={saving} onDiscard={onDiscard} /> :
-          view === "overview" ? <Overview sessions={sessions} firstName={firstName} onRead={() => navigate("read")} onInsights={() => navigate("insights")} onDelete={onDelete} /> :
-          view === "insights" ? <Insights sessions={sessions} /> :
+          view === "insights" ? <Insights sessions={sessions} firstName={firstName} onRead={() => navigate("read")} /> :
           <History sessions={sessions} onDelete={onDelete} />}
       </main>
     </div>
