@@ -10,12 +10,18 @@ import { formatTimer } from "./lib/analytics";
 import { chapterKey, nextLocation, uniqueChapters, verseCountForKeys } from "./lib/bible";
 import { demoSessions, demoUser } from "./lib/demo";
 import { db, isFirebaseConfigured } from "./lib/firebase";
-import { addReadingSession, removeReadingSession } from "./lib/sessions";
+import {
+  addReadingSession,
+  removeReadingSession,
+  waitForReadingSessionSave,
+  type ReadingSessionSaveStatus
+} from "./lib/sessions";
 import type { ActiveReading, ReadingLocation, ReadingSession } from "./types";
 
 const ACTIVE_KEY = "selah-bible.active";
 const LOCATION_KEY = "selah-bible.location";
 const DEFAULT_LOCATION: ReadingLocation = { bookIndex: 42, chapterIndex: 0 };
+type SaveConfirmation = { title: string; detail: string };
 
 export default function App() {
   useAppUpdate();
@@ -28,7 +34,7 @@ export default function App() {
   const [location, setLocation] = useState<ReadingLocation>(DEFAULT_LOCATION);
   const [active, setActive] = useState<ActiveReading | null>(null);
   const [saving, setSaving] = useState(false);
-  const [savedConfirmation, setSavedConfirmation] = useState("");
+  const [savedConfirmation, setSavedConfirmation] = useState<SaveConfirmation | null>(null);
   const [toast, setToast] = useState("");
 
   useEffect(() => {
@@ -90,6 +96,7 @@ export default function App() {
       Math.floor(((active.stoppedAt ?? Date.now()) - active.startedAt) / 1000)
     );
     const verseCount = verseCountForKeys(bible, chapters);
+    let saveStatus: ReadingSessionSaveStatus = "confirmed";
     setSaving(true);
     try {
       if (demo) {
@@ -103,12 +110,14 @@ export default function App() {
         };
         setSessions(current => [session, ...current]);
       } else if (db) {
-        await addReadingSession(db, user!.uid, durationSeconds, chapters, verseCount);
+        const save = addReadingSession(db, user!.uid, durationSeconds, chapters, verseCount);
+        saveStatus = await waitForReadingSessionSave(save, navigator.onLine ? undefined : 0);
       }
       clearActive();
-      showSavedConfirmation(
-        `${formatTimer(durationSeconds)} · ${chapters.length} ${chapters.length === 1 ? "chapter" : "chapters"} added to history`
-      );
+      const sessionSummary = `${formatTimer(durationSeconds)} · ${chapters.length} ${chapters.length === 1 ? "chapter" : "chapters"}`;
+      showSavedConfirmation(saveStatus === "confirmed"
+        ? { title: "Session saved", detail: `${sessionSummary} added to history` }
+        : { title: "Saved on this device", detail: `${sessionSummary} · Waiting to sync` });
     } catch {
       showToast("Session not saved. Please try again.");
     } finally {
@@ -145,9 +154,9 @@ export default function App() {
     window.setTimeout(() => setToast(""), 3200);
   }
 
-  function showSavedConfirmation(message: string) {
-    setSavedConfirmation(message);
-    window.setTimeout(() => setSavedConfirmation(""), 4200);
+  function showSavedConfirmation(confirmation: SaveConfirmation) {
+    setSavedConfirmation(confirmation);
+    window.setTimeout(() => setSavedConfirmation(null), 4200);
   }
 
   return (
@@ -174,7 +183,7 @@ export default function App() {
       {savedConfirmation && (
         <div className="save-confirmation" role="status">
           <CheckCircle2 />
-          <span><strong>Session saved</strong><small>{savedConfirmation}</small></span>
+          <span><strong>{savedConfirmation.title}</strong><small>{savedConfirmation.detail}</small></span>
         </div>
       )}
       {toast && <div className="toast" role="status">{toast}</div>}
