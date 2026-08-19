@@ -10,7 +10,7 @@ describe("Insights", () => {
     expect(screen.getByRole("heading", { name: "Your reading insights" })).toBeInTheDocument();
     expect(screen.getByText("This week")).toBeInTheDocument();
     expect(screen.getByText("Most-read book")).toBeInTheDocument();
-    expect(screen.getByText("Last 14 days")).toBeInTheDocument();
+    expect(screen.getByText("Last 7 days")).toBeInTheDocument();
     expect(screen.getByText("Reading pace")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /continue reading/i }));

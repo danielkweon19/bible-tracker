@@ -22,7 +22,7 @@ export function Insights({
 }) {
   const stats = calculateReadingStats(sessions);
   const insights = readingInsights(sessions);
-  const activity = dailyActivity(sessions, 14);
+  const activity = dailyActivity(sessions, 7);
   const max = Math.max(...activity.map(point => point.seconds), 1);
   return (
     <div className="dashboard-view">
@@ -43,8 +43,8 @@ export function Insights({
       </section>
       <section className="insights-layout">
         <article className="panel trend-panel">
-          <div className="panel-heading"><div><p className="eyebrow">Last 14 days</p><h2>Time in Scripture</h2></div></div>
-          <div className="trend-bars" aria-label="Reading time over the last 14 days">
+          <div className="panel-heading"><div><p className="eyebrow">Last 7 days</p><h2>Time in Scripture</h2></div></div>
+          <div className="trend-bars" aria-label="Reading time over the last 7 days">
             {activity.map(point => (
               <div className="trend-column" key={point.date.toISOString()} title={`${formatDate(point.date)}: ${formatDuration(point.seconds)}`}>
                 <span style={{ height: `${Math.max(point.seconds ? 8 : 2, (point.seconds / max) * 100)}%` }} />
