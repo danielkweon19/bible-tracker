@@ -14,6 +14,7 @@ import { saveReadingState, subscribeToReadingState } from "./lib/readingState";
 import {
   addReadingSession,
   clearReadingSessions,
+  ReadingSessionSyncTimeoutError,
   removeReadingSessions,
   syncReadingSessions
 } from "./lib/sessions";
@@ -213,8 +214,10 @@ export default function App() {
     try {
       await syncReadingSessions(db, user.uid, sessions);
       showToast("History synced. Refresh your other device.");
-    } catch {
-      showToast("History could not sync. Keep this device online and try again.");
+    } catch (syncError) {
+      showToast(syncError instanceof ReadingSessionSyncTimeoutError
+        ? "Sync timed out. Keep this device online and try again."
+        : "History could not sync. Keep this device online and try again.");
     } finally {
       setSyncingHistory(false);
     }

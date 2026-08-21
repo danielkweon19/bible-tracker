@@ -8,6 +8,7 @@ const firestore = vi.hoisted(() => ({
   doc: vi.fn((_db: unknown, collectionName: string, id: string) => ({
     path: `${collectionName}/${id}`
   })),
+  enableNetwork: vi.fn(() => Promise.resolve()),
   getDocsFromServer: vi.fn(),
   query: vi.fn((value: unknown) => value),
   serverTimestamp: vi.fn(() => "server-time"),
@@ -18,6 +19,7 @@ const firestore = vi.hoisted(() => ({
 vi.mock("firebase/firestore", () => ({
   collection: firestore.collection,
   doc: firestore.doc,
+  enableNetwork: firestore.enableNetwork,
   getDocs: vi.fn(),
   getDocsFromServer: firestore.getDocsFromServer,
   onSnapshot: vi.fn(),
@@ -28,7 +30,7 @@ vi.mock("firebase/firestore", () => ({
   writeBatch: firestore.writeBatch
 }));
 
-import { syncReadingSessions } from "./sessions";
+import { ReadingSessionSyncTimeoutError, syncReadingSessions } from "./sessions";
 
 describe("syncReadingSessions", () => {
   it("rewrites cached sessions to their existing IDs and verifies the server copy", async () => {
@@ -80,5 +82,23 @@ describe("syncReadingSessions", () => {
 
     await expect(syncReadingSessions({} as never, "reader-1", [session]))
       .rejects.toThrow("not confirmed");
+  });
+
+  it("times out when Firestore does not acknowledge the upload", async () => {
+    const session: ReadingSession = {
+      id: "cached-session",
+      uid: "reader-1",
+      durationSeconds: 300,
+      chapters: ["John 1"],
+      verseCount: 51,
+      createdAt: new Date("2026-08-18T12:00:00Z")
+    };
+    firestore.writeBatch.mockReturnValue({
+      set: firestore.batchSet,
+      commit: vi.fn(() => new Promise(() => undefined))
+    });
+
+    await expect(syncReadingSessions({} as never, "reader-1", [session], 1))
+      .rejects.toBeInstanceOf(ReadingSessionSyncTimeoutError);
   });
 });

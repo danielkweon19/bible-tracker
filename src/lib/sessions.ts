@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  enableNetwork,
   getDocs,
   getDocsFromServer,
   onSnapshot,
@@ -17,6 +18,14 @@ import type { DailyReadingRecord, ReadingSession } from "../types";
 
 const COLLECTION = "readingSessions";
 const LEGACY_DUPLICATE_WINDOW_MS = 15_000;
+const SYNC_TIMEOUT_MS = 15_000;
+
+export class ReadingSessionSyncTimeoutError extends Error {
+  constructor() {
+    super("Reading history sync timed out.");
+    this.name = "ReadingSessionSyncTimeoutError";
+  }
+}
 
 export async function addReadingSession(
   db: Firestore,
@@ -49,8 +58,18 @@ export async function removeReadingSessions(db: Firestore, ids: string[]) {
 export async function syncReadingSessions(
   db: Firestore,
   uid: string,
+  sessions: ReadingSession[],
+  timeoutMs = SYNC_TIMEOUT_MS
+) {
+  await withTimeout(syncReadingSessionsToServer(db, uid, sessions), timeoutMs);
+}
+
+async function syncReadingSessionsToServer(
+  db: Firestore,
+  uid: string,
   sessions: ReadingSession[]
 ) {
+  await enableNetwork(db);
   const ownedSessions = sessions.filter(session => session.uid === uid);
   for (let index = 0; index < ownedSessions.length; index += 450) {
     const batch = writeBatch(db);
@@ -72,6 +91,18 @@ export async function syncReadingSessions(
   const serverIds = new Set(serverSnapshot.docs.map(item => item.id));
   if (ownedSessions.some(session => !serverIds.has(session.id))) {
     throw new Error("Some reading sessions were not confirmed by the server.");
+  }
+}
+
+async function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new ReadingSessionSyncTimeoutError()), timeoutMs);
+  });
+  try {
+    return await Promise.race([operation, deadline]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
   }
 }
 
