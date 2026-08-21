@@ -31,7 +31,7 @@ describe("History", () => {
 
   it("clears all history from the page action", () => {
     const onClear = vi.fn();
-    render(<History sessions={[session]} onDelete={vi.fn()} onClear={onClear} onSync={vi.fn()} syncing={false} />);
+    render(<History sessions={[session]} onDelete={vi.fn()} onClear={onClear} />);
 
     fireEvent.click(screen.getByRole("button", { name: /clear history/i }));
 
@@ -45,8 +45,6 @@ describe("History", () => {
         sessions={[session]}
         onDelete={onDelete}
         onClear={vi.fn()}
-        onSync={vi.fn()}
-        syncing={false}
       />
     );
     const row = container.querySelector(".session-row");
@@ -78,8 +76,6 @@ describe("History", () => {
         }]}
         onDelete={vi.fn()}
         onClear={vi.fn()}
-        onSync={vi.fn()}
-        syncing={false}
       />
     );
 
@@ -103,8 +99,6 @@ describe("History", () => {
         ]}
         onDelete={onDelete}
         onClear={vi.fn()}
-        onSync={vi.fn()}
-        syncing={false}
       />
     );
 
@@ -115,19 +109,4 @@ describe("History", () => {
     expect(onDelete).toHaveBeenCalledWith(["session-1", "session-2"]);
   });
 
-  it("requests a server sync from the history action", () => {
-    const onSync = vi.fn();
-    render(
-      <History
-        sessions={[session]}
-        onDelete={vi.fn()}
-        onClear={vi.fn()}
-        onSync={onSync}
-        syncing={false}
-      />
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /sync history/i }));
-    expect(onSync).toHaveBeenCalledOnce();
-  });
 });

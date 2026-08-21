@@ -5,6 +5,7 @@ import { AppShell } from "./components/AppShell";
 import { useAppUpdate } from "./hooks/useAppUpdate";
 import { useAuth } from "./hooks/useAuth";
 import { useBible } from "./hooks/useBible";
+import { useHistoryAutoSync } from "./hooks/useHistoryAutoSync";
 import { useSessions } from "./hooks/useSessions";
 import { formatTimer } from "./lib/analytics";
 import { chapterKey, uniqueChapters, verseCountForKeys } from "./lib/bible";
@@ -15,7 +16,6 @@ import {
   clearReadingSessions,
   deduplicateReadingSessions,
   readingSessionId,
-  ReadingSessionSyncTimeoutError,
   removeReadingSessions,
   syncReadingSessions
 } from "./lib/sessions";
@@ -39,8 +39,8 @@ export default function App() {
   const [savedConfirmation, setSavedConfirmation] = useState<SaveConfirmation | null>(null);
   const [toast, setToast] = useState("");
   const [clearingHistory, setClearingHistory] = useState(false);
-  const [syncingHistory, setSyncingHistory] = useState(false);
   const submittedSessions = useRef(new Set<number>());
+  useHistoryAutoSync(db, firebaseUser, sessions, !demo && !loading);
 
   useEffect(() => {
     if (!user || !bible) return;
@@ -203,23 +203,6 @@ export default function App() {
     }
   }
 
-  async function syncHistory() {
-    if (demo || !db || !firebaseUser || !sessions.length || syncingHistory) return;
-    setSyncingHistory(true);
-    showToast("Syncing this device's history...");
-    try {
-      const idToken = await firebaseUser.getIdToken();
-      await syncReadingSessions(db, idToken, firebaseUser.uid, sessions);
-      showToast("History synced. Refresh your other device.");
-    } catch (syncError) {
-      showToast(syncError instanceof ReadingSessionSyncTimeoutError
-        ? "Sync timed out. Keep this device online and try again."
-        : "History could not sync. Keep this device online and try again.");
-    } finally {
-      setSyncingHistory(false);
-    }
-  }
-
   function persistReadingState(nextLocation: ReadingLocation, nextActive: ActiveReading | null) {
     persistLocalState(user!.uid, nextLocation, nextActive);
     if (uid && db) {
@@ -262,8 +245,6 @@ export default function App() {
         onDiscard={discardReading}
         onDelete={deleteSessions}
         onClearHistory={clearHistory}
-        onSyncHistory={syncHistory}
-        syncingHistory={syncingHistory}
       />
       {savedConfirmation && (
         <div className="save-confirmation" role="status">

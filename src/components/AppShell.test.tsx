@@ -36,8 +36,6 @@ function renderShell() {
       onDiscard={vi.fn()}
       onDelete={vi.fn()}
       onClearHistory={vi.fn()}
-      onSyncHistory={vi.fn()}
-      syncingHistory={false}
     />
   );
 }
