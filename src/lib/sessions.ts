@@ -1,13 +1,9 @@
 import {
   collection,
   doc,
-  enableNetwork,
   getDocs,
-  getDocsFromServer,
   onSnapshot,
   query,
-  serverTimestamp,
-  setDoc,
   where,
   writeBatch,
   type DocumentReference,
@@ -27,23 +23,6 @@ export class ReadingSessionSyncTimeoutError extends Error {
   }
 }
 
-export async function addReadingSession(
-  db: Firestore,
-  uid: string,
-  startedAt: number,
-  durationSeconds: number,
-  chapters: string[],
-  verseCount: number
-) {
-  await setDoc(doc(db, COLLECTION, readingSessionId(uid, startedAt)), {
-    uid,
-    durationSeconds: Math.max(1, Math.floor(durationSeconds)),
-    chapters,
-    verseCount,
-    createdAt: serverTimestamp()
-  });
-}
-
 export function readingSessionId(uid: string, startedAt: number): string {
   return `${encodeURIComponent(uid)}-${Math.max(0, Math.floor(startedAt)).toString(36)}`;
 }
@@ -57,47 +36,94 @@ export async function removeReadingSessions(db: Firestore, ids: string[]) {
 
 export async function syncReadingSessions(
   db: Firestore,
+  idToken: string,
   uid: string,
   sessions: ReadingSession[],
   timeoutMs = SYNC_TIMEOUT_MS
 ) {
-  await withTimeout(syncReadingSessionsToServer(db, uid, sessions), timeoutMs);
+  const projectId = db.app.options.projectId;
+  if (!projectId) throw new Error("Firebase project ID is unavailable.");
+
+  const controller = new AbortController();
+  await withTimeout(
+    syncReadingSessionsToServer(projectId, idToken, uid, sessions, controller.signal),
+    timeoutMs,
+    () => controller.abort()
+  );
 }
 
 async function syncReadingSessionsToServer(
-  db: Firestore,
+  projectId: string,
+  idToken: string,
   uid: string,
-  sessions: ReadingSession[]
+  sessions: ReadingSession[],
+  signal: AbortSignal
 ) {
-  await enableNetwork(db);
   const ownedSessions = sessions.filter(session => session.uid === uid);
   for (let index = 0; index < ownedSessions.length; index += 450) {
-    const batch = writeBatch(db);
-    ownedSessions.slice(index, index + 450).forEach(session => {
-      batch.set(doc(db, COLLECTION, session.id), {
-        uid,
-        durationSeconds: Math.max(1, Math.floor(session.durationSeconds)),
-        chapters: session.chapters,
-        verseCount: Math.max(1, Math.floor(session.verseCount)),
-        createdAt: sessionDate(session) ?? serverTimestamp()
-      });
-    });
-    await batch.commit();
-  }
-
-  const serverSnapshot = await getDocsFromServer(
-    query(collection(db, COLLECTION), where("uid", "==", uid))
-  );
-  const serverIds = new Set(serverSnapshot.docs.map(item => item.id));
-  if (ownedSessions.some(session => !serverIds.has(session.id))) {
-    throw new Error("Some reading sessions were not confirmed by the server.");
+    const chunk = ownedSessions.slice(index, index + 450);
+    const response = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents:commit`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          writes: chunk.map(session => ({
+            update: {
+              name: `projects/${projectId}/databases/(default)/documents/${COLLECTION}/${session.id}`,
+              fields: {
+                uid: { stringValue: uid },
+                durationSeconds: {
+                  integerValue: String(Math.max(1, Math.floor(session.durationSeconds)))
+                },
+                chapters: {
+                  arrayValue: {
+                    values: session.chapters.map(chapter => ({ stringValue: chapter }))
+                  }
+                },
+                verseCount: {
+                  integerValue: String(Math.max(1, Math.floor(session.verseCount)))
+                },
+                createdAt: {
+                  timestampValue: syncTimestamp(session).toISOString()
+                }
+              }
+            }
+          }))
+        }),
+        signal
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`History sync request failed with status ${response.status}.`);
+    }
+    const result = await response.json() as { writeResults?: unknown[] };
+    if (result.writeResults?.length !== chunk.length) {
+      throw new Error("Some reading sessions were not confirmed by the server.");
+    }
   }
 }
 
-async function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
+function syncTimestamp(session: ReadingSession): Date {
+  const now = Date.now();
+  const timestamp = sessionDate(session)?.getTime() ?? now;
+  return new Date(Math.min(timestamp, now));
+}
+
+async function withTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  onTimeout?: () => void
+): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => reject(new ReadingSessionSyncTimeoutError()), timeoutMs);
+    timeout = setTimeout(() => {
+      reject(new ReadingSessionSyncTimeoutError());
+      onTimeout?.();
+    }, timeoutMs);
   });
   try {
     return await Promise.race([operation, deadline]);

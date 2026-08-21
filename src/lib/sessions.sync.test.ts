@@ -2,14 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { ReadingSession } from "../types";
 
 const firestore = vi.hoisted(() => ({
-  batchSet: vi.fn(),
   collection: vi.fn(() => ({ path: "readingSessions" })),
-  commit: vi.fn(() => Promise.resolve()),
   doc: vi.fn((_db: unknown, collectionName: string, id: string) => ({
     path: `${collectionName}/${id}`
   })),
-  enableNetwork: vi.fn(() => Promise.resolve()),
-  getDocsFromServer: vi.fn(),
   query: vi.fn((value: unknown) => value),
   serverTimestamp: vi.fn(() => "server-time"),
   where: vi.fn(() => ({ field: "uid" })),
@@ -19,9 +15,7 @@ const firestore = vi.hoisted(() => ({
 vi.mock("firebase/firestore", () => ({
   collection: firestore.collection,
   doc: firestore.doc,
-  enableNetwork: firestore.enableNetwork,
   getDocs: vi.fn(),
-  getDocsFromServer: firestore.getDocsFromServer,
   onSnapshot: vi.fn(),
   query: firestore.query,
   serverTimestamp: firestore.serverTimestamp,
@@ -33,7 +27,7 @@ vi.mock("firebase/firestore", () => ({
 import { ReadingSessionSyncTimeoutError, syncReadingSessions } from "./sessions";
 
 describe("syncReadingSessions", () => {
-  it("rewrites cached sessions to their existing IDs and verifies the server copy", async () => {
+  it("uploads cached sessions through the authenticated Firestore HTTPS API", async () => {
     const createdAt = new Date("2026-08-18T12:00:00Z");
     const session: ReadingSession = {
       id: "cached-session",
@@ -43,26 +37,47 @@ describe("syncReadingSessions", () => {
       verseCount: 51,
       createdAt
     };
-    firestore.writeBatch.mockReturnValue({
-      set: firestore.batchSet,
-      commit: firestore.commit
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({ writeResults: [{}] })
     });
-    firestore.getDocsFromServer.mockResolvedValue({
-      docs: [{ id: session.id }]
-    });
+    vi.stubGlobal("fetch", fetchMock);
 
-    await syncReadingSessions({} as never, "reader-1", [session]);
+    await syncReadingSessions(
+      firestoreDb("bible-project"),
+      "firebase-id-token",
+      "reader-1",
+      [session]
+    );
 
-    expect(firestore.batchSet).toHaveBeenCalledWith(
-      { path: "readingSessions/cached-session" },
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://firestore.googleapis.com/v1/projects/bible-project/databases/(default)/documents:commit",
       expect.objectContaining({
-        uid: "reader-1",
-        durationSeconds: 300,
-        createdAt
+        method: "POST",
+        headers: {
+          Authorization: "Bearer firebase-id-token",
+          "Content-Type": "application/json"
+        }
       })
     );
-    expect(firestore.commit).toHaveBeenCalledOnce();
-    expect(firestore.getDocsFromServer).toHaveBeenCalledOnce();
+    const request = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(request.body as string)).toEqual({
+      writes: [{
+        update: {
+          name: "projects/bible-project/databases/(default)/documents/readingSessions/cached-session",
+          fields: {
+            uid: { stringValue: "reader-1" },
+            durationSeconds: { integerValue: "300" },
+            chapters: {
+              arrayValue: { values: [{ stringValue: "John 1" }] }
+            },
+            verseCount: { integerValue: "51" },
+            createdAt: { timestampValue: createdAt.toISOString() }
+          }
+        }
+      }]
+    });
   });
 
   it("fails when the server does not confirm every cached session", async () => {
@@ -74,13 +89,18 @@ describe("syncReadingSessions", () => {
       verseCount: 51,
       createdAt: new Date("2026-08-18T12:00:00Z")
     };
-    firestore.writeBatch.mockReturnValue({
-      set: firestore.batchSet,
-      commit: firestore.commit
-    });
-    firestore.getDocsFromServer.mockResolvedValue({ docs: [] });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({ writeResults: [] })
+    }));
 
-    await expect(syncReadingSessions({} as never, "reader-1", [session]))
+    await expect(syncReadingSessions(
+      firestoreDb(),
+      "firebase-id-token",
+      "reader-1",
+      [session]
+    ))
       .rejects.toThrow("not confirmed");
   });
 
@@ -93,12 +113,19 @@ describe("syncReadingSessions", () => {
       verseCount: 51,
       createdAt: new Date("2026-08-18T12:00:00Z")
     };
-    firestore.writeBatch.mockReturnValue({
-      set: firestore.batchSet,
-      commit: vi.fn(() => new Promise(() => undefined))
-    });
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => undefined)));
 
-    await expect(syncReadingSessions({} as never, "reader-1", [session], 1))
+    await expect(syncReadingSessions(
+      firestoreDb(),
+      "firebase-id-token",
+      "reader-1",
+      [session],
+      1
+    ))
       .rejects.toBeInstanceOf(ReadingSessionSyncTimeoutError);
   });
 });
+
+function firestoreDb(projectId = "bible-project") {
+  return { app: { options: { projectId } } } as never;
+}

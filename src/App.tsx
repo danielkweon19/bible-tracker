@@ -12,8 +12,9 @@ import { demoSessions, demoUser } from "./lib/demo";
 import { db, isFirebaseConfigured } from "./lib/firebase";
 import { saveReadingState, subscribeToReadingState } from "./lib/readingState";
 import {
-  addReadingSession,
   clearReadingSessions,
+  deduplicateReadingSessions,
+  readingSessionId,
   ReadingSessionSyncTimeoutError,
   removeReadingSessions,
   syncReadingSessions
@@ -116,7 +117,7 @@ export default function App() {
     persistReadingState(location, stopped);
   }
 
-  function finishReading() {
+  async function finishReading() {
     if (!active || !bible) return;
     const sessionToSave = active;
     if (submittedSessions.current.has(sessionToSave.startedAt)) return;
@@ -130,39 +131,34 @@ export default function App() {
     const sessionSummary = `${formatTimer(durationSeconds)} · ${chapters.length} ${chapters.length === 1 ? "chapter" : "chapters"}`;
 
     try {
+      const session: ReadingSession = {
+        id: demo
+          ? `demo-${sessionToSave.startedAt}`
+          : readingSessionId(user!.uid, sessionToSave.startedAt),
+        uid: user!.uid,
+        durationSeconds,
+        chapters,
+        verseCount,
+        createdAt: new Date(sessionToSave.startedAt)
+      };
       if (demo) {
-        const session: ReadingSession = {
-          id: `demo-${active.startedAt}`,
-          uid: user!.uid,
-          durationSeconds,
-          chapters,
-          verseCount,
-          createdAt: new Date()
-        };
         setSessions(current => [session, ...current]);
-      } else if (db) {
-        void addReadingSession(db, user!.uid, active.startedAt, durationSeconds, chapters, verseCount)
-          .catch(() => recoverFailedSave(sessionToSave));
+      } else if (db && firebaseUser) {
+        const idToken = await firebaseUser.getIdToken();
+        await syncReadingSessions(db, idToken, firebaseUser.uid, [session]);
+        setSessions(current => deduplicateReadingSessions([session, ...current]));
+      } else {
+        throw new Error("Reading history is not connected.");
       }
       clearActive();
-      showSavedConfirmation(navigator.onLine
-        ? { title: "Session saved", detail: `${sessionSummary} added to history` }
-        : { title: "Saved on this device", detail: `${sessionSummary} · Will sync automatically` });
+      showSavedConfirmation({
+        title: "Session saved",
+        detail: `${sessionSummary} added to history`
+      });
     } catch {
       submittedSessions.current.delete(sessionToSave.startedAt);
-      showToast("Session not saved. Please try again.");
+      showToast("Session could not sync. It is still ready to save.");
     }
-  }
-
-  function recoverFailedSave(session: ActiveReading) {
-    submittedSessions.current.delete(session.startedAt);
-    setSavedConfirmation(null);
-    setActive(current => {
-      if (current) return current;
-      persistReadingState(location, session);
-      return session;
-    });
-    showToast("Session could not sync. It is ready to retry.");
   }
 
   function discardReading() {
@@ -208,11 +204,12 @@ export default function App() {
   }
 
   async function syncHistory() {
-    if (demo || !db || !user || !sessions.length || syncingHistory) return;
+    if (demo || !db || !firebaseUser || !sessions.length || syncingHistory) return;
     setSyncingHistory(true);
     showToast("Syncing this device's history...");
     try {
-      await syncReadingSessions(db, user.uid, sessions);
+      const idToken = await firebaseUser.getIdToken();
+      await syncReadingSessions(db, idToken, firebaseUser.uid, sessions);
       showToast("History synced. Refresh your other device.");
     } catch (syncError) {
       showToast(syncError instanceof ReadingSessionSyncTimeoutError
