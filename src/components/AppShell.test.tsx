@@ -18,7 +18,7 @@ const bible: BibleData = {
 };
 
 function renderShell() {
-  render(
+  return render(
     <AppShell
       user={{ uid: "reader-1", displayName: "Reader", email: "reader@example.com", photoURL: null }}
       bible={bible}
@@ -59,4 +59,15 @@ test("uses one combined insights destination", () => {
   fireEvent.click(screen.getByRole("button", { name: /insights/i }));
 
   expect(screen.getByText("Combined insights content")).toBeInTheDocument();
+});
+
+test("opens and closes the mobile sidebar from dedicated controls", () => {
+  const { container } = renderShell();
+  const sidebar = container.querySelector(".sidebar");
+
+  fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
+  expect(sidebar).toHaveClass("open");
+
+  fireEvent.click(screen.getByRole("button", { name: "Close menu" }));
+  expect(sidebar).not.toHaveClass("open");
 });

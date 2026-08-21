@@ -49,6 +49,19 @@ describe("calculateReadingStats", () => {
       session("2", 2, 300, ["Mark 2"])
     ], now).streakDays).toBe(2);
   });
+
+  it("includes pending writes whose date is encoded in the stable ID", () => {
+    const startedAt = now.getTime();
+    const pending = {
+      ...session("pending", 0, 125, ["Mark 1"]),
+      id: `reader-${startedAt.toString(36)}`,
+      createdAt: null
+    };
+
+    expect(calculateReadingStats([pending], now).weekSeconds).toBe(125);
+    const activity = dailyActivity([pending], 7, now);
+    expect(activity[activity.length - 1].seconds).toBe(125);
+  });
 });
 
 describe("dailyActivity", () => {

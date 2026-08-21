@@ -14,7 +14,7 @@ import { saveReadingState, subscribeToReadingState } from "./lib/readingState";
 import {
   addReadingSession,
   clearReadingSessions,
-  removeReadingSession
+  removeReadingSessions
 } from "./lib/sessions";
 import type { ActiveReading, ReadingLocation, ReadingSession } from "./types";
 
@@ -167,13 +167,17 @@ export default function App() {
     clearActive();
   }
 
-  async function deleteSession(id: string) {
-    if (!window.confirm("Delete this reading session? This cannot be undone.")) return;
+  async function deleteSessions(ids: string[]) {
+    if (!window.confirm("Delete this day's reading record? This cannot be undone.")) return;
     try {
-      if (demo) setSessions(current => current.filter(session => session.id !== id));
-      else if (db) await removeReadingSession(db, id);
+      if (demo) {
+        const idsToDelete = new Set(ids);
+        setSessions(current => current.filter(session => !idsToDelete.has(session.id)));
+      } else if (db) {
+        await removeReadingSessions(db, ids);
+      }
     } catch {
-      showToast("That session could not be deleted.");
+      showToast("That reading record could not be deleted.");
     }
   }
 
@@ -240,7 +244,7 @@ export default function App() {
         onStop={stopReading}
         onFinish={finishReading}
         onDiscard={discardReading}
-        onDelete={deleteSession}
+        onDelete={deleteSessions}
         onClearHistory={clearHistory}
       />
       {savedConfirmation && (

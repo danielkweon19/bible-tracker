@@ -50,7 +50,7 @@ export function AppShell({
   onStop: () => void;
   onFinish: () => void;
   onDiscard: () => void;
-  onDelete: (id: string) => void;
+  onDelete: (ids: string[]) => void;
   onClearHistory: () => void;
 }) {
   const [view, setView] = useState<View>(initialView);
@@ -76,8 +76,10 @@ export function AppShell({
   return (
     <div className="app-shell">
       <aside className={mobileMenu ? "sidebar open" : "sidebar"}>
-        <div className="brand"><BookOpen size={20} /> Bible Tracker</div>
-        <button className="icon-button close-menu" onClick={() => setMobileMenu(false)} aria-label="Close menu"><X /></button>
+        <div className="sidebar-header">
+          <div className="brand"><BookOpen size={20} /> Bible Tracker</div>
+          <button className="icon-button close-menu" onClick={() => setMobileMenu(false)} aria-label="Close menu"><X /></button>
+        </div>
         <nav>
           <button className={view === "read" ? "active" : ""} onClick={() => navigate("read")}><Library /> Read</button>
           <button className={view === "insights" ? "active" : ""} onClick={() => navigate("insights")}><LineChart /> Insights</button>

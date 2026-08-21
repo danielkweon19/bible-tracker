@@ -77,4 +77,31 @@ describe("History", () => {
 
     expect(screen.getByText("Psalms 40 - 44")).toBeInTheDocument();
   });
+
+  it("shows same-day sessions as one record with combined time", () => {
+    const onDelete = vi.fn();
+    render(
+      <History
+        sessions={[
+          session,
+          {
+            ...session,
+            id: "session-2",
+            durationSeconds: 120,
+            chapters: ["John 2"],
+            verseCount: 25,
+            createdAt: new Date("2026-08-19T18:00:00Z")
+          }
+        ]}
+        onDelete={onDelete}
+        onClear={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("John 1 - 2")).toBeInTheDocument();
+    expect(screen.getAllByText(/7 min/)).toHaveLength(2);
+    expect(screen.getByText(/1 reading day/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete day" }));
+    expect(onDelete).toHaveBeenCalledWith(["session-1", "session-2"]);
+  });
 });

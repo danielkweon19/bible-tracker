@@ -28,6 +28,11 @@ export type ReadingSession = {
   createdAt: Timestamp | Date | null;
 };
 
+export type DailyReadingRecord = ReadingSession & {
+  sessionIds: string[];
+  sessionCount: number;
+};
+
 export type ActiveReading = {
   startedAt: number;
   stoppedAt?: number;

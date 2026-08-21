@@ -9,8 +9,8 @@ import {
   Trash2
 } from "lucide-react";
 import { calculateReadingStats, dailyActivity, formatDuration, readingInsights } from "../lib/analytics";
-import { sessionDate } from "../lib/sessions";
-import type { ReadingSession } from "../types";
+import { dailyReadingRecords, sessionDate } from "../lib/sessions";
+import type { DailyReadingRecord, ReadingSession } from "../types";
 
 export function Insights({
   sessions,
@@ -47,8 +47,17 @@ export function Insights({
           <div className="panel-heading"><div><p className="eyebrow">Last 7 days</p><h2>Time in Scripture</h2></div></div>
           <div className="trend-bars" aria-label="Reading time over the last 7 days">
             {activity.map(point => (
-              <div className="trend-column" key={point.date.toISOString()} title={`${formatDate(point.date)}: ${formatDuration(point.seconds)}`}>
-                <span style={{ height: `${Math.max(point.seconds ? 8 : 2, (point.seconds / max) * 100)}%` }} />
+              <div
+                className="trend-column"
+                key={point.date.toISOString()}
+                tabIndex={0}
+                aria-label={`${formatActivityDate(point.date)}: ${formatDuration(point.seconds)}`}
+              >
+                <span className="trend-tooltip" role="tooltip">
+                  <strong>{formatDuration(point.seconds)}</strong>
+                  <small>{formatActivityDate(point.date)}</small>
+                </span>
+                <span className="trend-bar" style={{ height: `${Math.max(point.seconds ? 8 : 2, (point.seconds / max) * 100)}%` }} />
                 <small>{point.date.toLocaleDateString(undefined, { weekday: "narrow" })}</small>
               </div>
             ))}
@@ -75,10 +84,11 @@ export function History({
   onClear
 }: {
   sessions: ReadingSession[];
-  onDelete: (id: string) => void;
+  onDelete: (ids: string[]) => void;
   onClear: () => void;
 }) {
   const stats = calculateReadingStats(sessions);
+  const records = dailyReadingRecords(sessions);
   return (
     <div className="dashboard-view">
       <PageHeader
@@ -92,10 +102,10 @@ export function History({
       />
       <section className="panel history-panel">
         <div className="history-summary">
-          <div><p className="eyebrow">All time</p><h2>{formatDuration(stats.totalSeconds, true)}</h2><span>{stats.sessionCount} sessions · {stats.chaptersRead} chapters</span></div>
+          <div><p className="eyebrow">All time</p><h2>{formatDuration(stats.totalSeconds, true)}</h2><span>{records.length} reading {records.length === 1 ? "day" : "days"} · {stats.chaptersRead} chapters</span></div>
           <div className="history-mark"><BarChart3 /></div>
         </div>
-        <SessionList sessions={sessions} onDelete={onDelete} />
+        <SessionList records={records} onDelete={onDelete} />
       </section>
     </div>
   );
@@ -109,17 +119,17 @@ function Insight({ label, value, note }: { label: string; value: string; note: s
   return <article className="insight-card"><p>{label}</p><strong>{value}</strong><span>{note}</span></article>;
 }
 
-function SessionList({ sessions, onDelete }: { sessions: ReadingSession[]; onDelete: (id: string) => void }) {
-  if (!sessions.length) return <div className="empty-state"><BookMarked /><strong>No reading sessions yet</strong><span>Your first saved chapter will appear here.</span></div>;
+function SessionList({ records, onDelete }: { records: DailyReadingRecord[]; onDelete: (ids: string[]) => void }) {
+  if (!records.length) return <div className="empty-state"><BookMarked /><strong>No reading sessions yet</strong><span>Your first saved chapter will appear here.</span></div>;
   return <div className="session-list">
-    {sessions.map(session => {
-      const date = sessionDate(session);
+    {records.map(record => {
+      const date = sessionDate(record);
       return (
         <SessionRow
-          key={session.id}
-          session={session}
+          key={record.id}
+          record={record}
           date={date}
-          onDelete={() => onDelete(session.id)}
+          onDelete={() => onDelete(record.sessionIds)}
         />
       );
     })}
@@ -127,17 +137,17 @@ function SessionList({ sessions, onDelete }: { sessions: ReadingSession[]; onDel
 }
 
 function SessionRow({
-  session,
+  record,
   date,
   onDelete
 }: {
-  session: ReadingSession;
+  record: DailyReadingRecord;
   date: Date | null;
   onDelete: () => void;
 }) {
   const [revealed, setRevealed] = useState(false);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const chapterLabel = formatChapters(session.chapters);
+  const chapterLabel = formatChapters(record.chapters);
 
   function finishSwipe(event: React.TouchEvent) {
     const start = touchStart.current;
@@ -173,10 +183,10 @@ function SessionRow({
         <div className="session-symbol"><BookCheck size={17} /></div>
         <div className="session-main">
           <strong>{chapterLabel}</strong>
-          <span>{date ? formatDate(date) : "Just now"} · {formatDuration(session.durationSeconds)}</span>
+          <span>{date ? formatDate(date) : "Date pending"} · {formatDuration(record.durationSeconds)}</span>
         </div>
-        <span className="verse-total">{session.verseCount} verses</span>
-        <button className="icon-button delete-button" onClick={onDelete} title="Delete session" aria-label="Delete session"><Trash2 size={16} /></button>
+        <span className="verse-total">{record.verseCount} verses</span>
+        <button className="icon-button delete-button" onClick={onDelete} title="Delete day" aria-label="Delete day"><Trash2 size={16} /></button>
       </div>
     </div>
   );
@@ -213,6 +223,16 @@ function formatDate(date: Date): string {
     return `Today, ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
   }
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: date.getFullYear() === today.getFullYear() ? undefined : "numeric" });
+}
+
+function formatActivityDate(date: Date): string {
+  const today = new Date();
+  if (date.toDateString() === today.toDateString()) return "Today";
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric"
+  });
 }
 
 function greeting(): string {

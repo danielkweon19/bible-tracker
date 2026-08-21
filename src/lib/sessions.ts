@@ -1,6 +1,5 @@
 import {
   collection,
-  deleteDoc,
   doc,
   getDocs,
   onSnapshot,
@@ -13,7 +12,7 @@ import {
   type Firestore,
   type Unsubscribe
 } from "firebase/firestore";
-import type { ReadingSession } from "../types";
+import type { DailyReadingRecord, ReadingSession } from "../types";
 
 const COLLECTION = "readingSessions";
 const LEGACY_DUPLICATE_WINDOW_MS = 15_000;
@@ -39,8 +38,11 @@ export function readingSessionId(uid: string, startedAt: number): string {
   return `${encodeURIComponent(uid)}-${Math.max(0, Math.floor(startedAt)).toString(36)}`;
 }
 
-export async function removeReadingSession(db: Firestore, id: string) {
-  await deleteDoc(doc(db, COLLECTION, id));
+export async function removeReadingSessions(db: Firestore, ids: string[]) {
+  await deleteSessionRefs(
+    db,
+    [...new Set(ids)].map(id => doc(db, COLLECTION, id))
+  );
 }
 
 export async function clearReadingSessions(
@@ -82,7 +84,7 @@ export function subscribeToReadingSessions(
     query(collection(db, COLLECTION), where("uid", "==", uid)),
     snapshot => {
       const sessions = snapshot.docs.flatMap(item => {
-        const data = item.data();
+        const data = item.data({ serverTimestamps: "estimate" });
         if (
           typeof data.uid !== "string" ||
           typeof data.durationSeconds !== "number" ||
@@ -122,8 +124,61 @@ export function deduplicateReadingSessions(sessions: ReadingSession[]): ReadingS
 }
 
 export function sessionDate(session: ReadingSession): Date | null {
-  if (!session.createdAt) return null;
-  return session.createdAt instanceof Date ? session.createdAt : session.createdAt.toDate();
+  const encodedDate = dateFromStableId(session);
+  if (encodedDate) return encodedDate;
+
+  if (session.createdAt) {
+    const date = session.createdAt instanceof Date
+      ? session.createdAt
+      : session.createdAt.toDate();
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  return null;
+}
+
+function dateFromStableId(session: ReadingSession): Date | null {
+  const prefix = `${encodeURIComponent(session.uid)}-`;
+  if (!session.id.startsWith(prefix)) return null;
+  const encodedStart = session.id.slice(prefix.length);
+  if (!/^[0-9a-z]+$/.test(encodedStart)) return null;
+  const startedAt = Number.parseInt(encodedStart, 36);
+  if (!Number.isSafeInteger(startedAt) || startedAt < 0) return null;
+  const date = new Date(startedAt);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function dailyReadingRecords(sessions: ReadingSession[]): DailyReadingRecord[] {
+  const records = new Map<string, DailyReadingRecord>();
+
+  sessions.forEach(session => {
+    const date = sessionDate(session);
+    const key = date ? localDateKey(date) : `unknown-${session.id}`;
+    const existing = records.get(key);
+    if (!existing) {
+      records.set(key, {
+        ...session,
+        createdAt: date ?? session.createdAt,
+        chapters: [...new Set(session.chapters)],
+        sessionIds: [session.id],
+        sessionCount: 1
+      });
+      return;
+    }
+
+    existing.durationSeconds += session.durationSeconds;
+    existing.chapters = [...new Set([...existing.chapters, ...session.chapters])];
+    existing.verseCount += session.verseCount;
+    existing.sessionIds.push(session.id);
+    existing.sessionCount += 1;
+
+    const existingDate = sessionDate(existing);
+    if (date && (!existingDate || date > existingDate)) {
+      existing.id = session.id;
+      existing.createdAt = date;
+    }
+  });
+
+  return [...records.values()].sort((left, right) => sessionTime(right) - sessionTime(left));
 }
 
 function sessionTime(session: ReadingSession): number {
@@ -138,4 +193,8 @@ function sessionFingerprint(session: ReadingSession): string {
     session.chapters,
     session.verseCount
   ]);
+}
+
+function localDateKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }

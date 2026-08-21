@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { ReadingSession } from "../types";
-import { deduplicateReadingSessions, readingSessionId } from "./sessions";
+import {
+  dailyReadingRecords,
+  deduplicateReadingSessions,
+  readingSessionId,
+  sessionDate
+} from "./sessions";
 
 function session(
   id: string,
@@ -43,5 +48,28 @@ describe("reading session writes", () => {
       session("first", null),
       session("duplicate", null)
     ])).toHaveLength(1);
+  });
+
+  it("recovers the date of a pending write from its stable document ID", () => {
+    const startedAt = new Date("2026-08-21T14:30:00Z").getTime();
+    const pending = session(readingSessionId("reader/one", startedAt), null);
+
+    expect(sessionDate(pending)?.toISOString()).toBe("2026-08-21T14:30:00.000Z");
+  });
+
+  it("combines sessions from the same day into one reading record", () => {
+    const morning = session("morning", new Date(2026, 7, 21, 8), 300, ["John 1"]);
+    const evening = session("evening", new Date(2026, 7, 21, 19), 420, ["John 2"]);
+    const yesterday = session("yesterday", new Date(2026, 7, 20, 8), 180, ["Mark 1"]);
+
+    const records = dailyReadingRecords([morning, evening, yesterday]);
+
+    expect(records).toHaveLength(2);
+    expect(records[0]).toMatchObject({
+      durationSeconds: 720,
+      chapters: ["John 1", "John 2"],
+      sessionIds: ["morning", "evening"],
+      sessionCount: 2
+    });
   });
 });
