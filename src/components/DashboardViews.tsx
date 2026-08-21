@@ -101,9 +101,14 @@ export function History({
         title="Your reading history"
         action={sessions.length ? (
           <div className="session-actions">
-            <button className="secondary-button" disabled={syncing} onClick={onSync}>
+            <button
+              className="icon-button secondary-button"
+              disabled={syncing}
+              onClick={onSync}
+              title={syncing ? "Syncing history" : "Sync history"}
+              aria-label={syncing ? "Syncing history" : "Sync history"}
+            >
               <RefreshCw className={syncing ? "spin" : undefined} size={17} />
-              <span>{syncing ? "Syncing" : "Sync history"}</span>
             </button>
             <button className="secondary-button clear-history-button" onClick={onClear}>
               <Trash2 size={17} /><span>Clear history</span>
