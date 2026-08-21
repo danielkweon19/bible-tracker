@@ -29,6 +29,7 @@ export const firebaseApp: FirebaseApp | null = isFirebaseConfigured ? initialize
 export const auth: Auth | null = firebaseApp ? getAuth(firebaseApp) : null;
 export const db: Firestore | null = firebaseApp
   ? initializeFirestore(firebaseApp, {
+      experimentalForceLongPolling: true,
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager()
       })
