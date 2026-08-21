@@ -24,7 +24,8 @@ service cloud.firestore {
         && request.resource.data.verseCount is int
         && request.resource.data.verseCount > 0
         && request.resource.data.verseCount <= 5000
-        && request.resource.data.createdAt == request.time;
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt <= request.time;
     }
 
     function validReadingState(uid) {

@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   getDocs,
+  getDocsFromServer,
   onSnapshot,
   query,
   serverTimestamp,
@@ -43,6 +44,35 @@ export async function removeReadingSessions(db: Firestore, ids: string[]) {
     db,
     [...new Set(ids)].map(id => doc(db, COLLECTION, id))
   );
+}
+
+export async function syncReadingSessions(
+  db: Firestore,
+  uid: string,
+  sessions: ReadingSession[]
+) {
+  const ownedSessions = sessions.filter(session => session.uid === uid);
+  for (let index = 0; index < ownedSessions.length; index += 450) {
+    const batch = writeBatch(db);
+    ownedSessions.slice(index, index + 450).forEach(session => {
+      batch.set(doc(db, COLLECTION, session.id), {
+        uid,
+        durationSeconds: Math.max(1, Math.floor(session.durationSeconds)),
+        chapters: session.chapters,
+        verseCount: Math.max(1, Math.floor(session.verseCount)),
+        createdAt: sessionDate(session) ?? serverTimestamp()
+      });
+    });
+    await batch.commit();
+  }
+
+  const serverSnapshot = await getDocsFromServer(
+    query(collection(db, COLLECTION), where("uid", "==", uid))
+  );
+  const serverIds = new Set(serverSnapshot.docs.map(item => item.id));
+  if (ownedSessions.some(session => !serverIds.has(session.id))) {
+    throw new Error("Some reading sessions were not confirmed by the server.");
+  }
 }
 
 export async function clearReadingSessions(

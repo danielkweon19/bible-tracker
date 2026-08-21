@@ -5,6 +5,7 @@ import {
   BookMarked,
   CalendarDays,
   Flame,
+  RefreshCw,
   Sparkles,
   Trash2
 } from "lucide-react";
@@ -81,11 +82,15 @@ export function Insights({
 export function History({
   sessions,
   onDelete,
-  onClear
+  onClear,
+  onSync,
+  syncing
 }: {
   sessions: ReadingSession[];
   onDelete: (ids: string[]) => void;
   onClear: () => void;
+  onSync: () => void;
+  syncing: boolean;
 }) {
   const stats = calculateReadingStats(sessions);
   const records = dailyReadingRecords(sessions);
@@ -95,9 +100,15 @@ export function History({
         eyebrow="Reading journal"
         title="Your reading history"
         action={sessions.length ? (
-          <button className="secondary-button clear-history-button" onClick={onClear}>
-            <Trash2 size={17} /><span>Clear history</span>
-          </button>
+          <div className="session-actions">
+            <button className="secondary-button" disabled={syncing} onClick={onSync}>
+              <RefreshCw className={syncing ? "spin" : undefined} size={17} />
+              <span>{syncing ? "Syncing" : "Sync history"}</span>
+            </button>
+            <button className="secondary-button clear-history-button" onClick={onClear}>
+              <Trash2 size={17} /><span>Clear history</span>
+            </button>
+          </div>
         ) : undefined}
       />
       <section className="panel history-panel">

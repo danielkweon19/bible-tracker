@@ -14,7 +14,8 @@ import { saveReadingState, subscribeToReadingState } from "./lib/readingState";
 import {
   addReadingSession,
   clearReadingSessions,
-  removeReadingSessions
+  removeReadingSessions,
+  syncReadingSessions
 } from "./lib/sessions";
 import type { ActiveReading, ReadingLocation, ReadingSession } from "./types";
 
@@ -36,6 +37,7 @@ export default function App() {
   const [savedConfirmation, setSavedConfirmation] = useState<SaveConfirmation | null>(null);
   const [toast, setToast] = useState("");
   const [clearingHistory, setClearingHistory] = useState(false);
+  const [syncingHistory, setSyncingHistory] = useState(false);
   const submittedSessions = useRef(new Set<number>());
 
   useEffect(() => {
@@ -204,6 +206,20 @@ export default function App() {
     }
   }
 
+  async function syncHistory() {
+    if (demo || !db || !user || !sessions.length || syncingHistory) return;
+    setSyncingHistory(true);
+    showToast("Syncing this device's history...");
+    try {
+      await syncReadingSessions(db, user.uid, sessions);
+      showToast("History synced. Refresh your other device.");
+    } catch {
+      showToast("History could not sync. Keep this device online and try again.");
+    } finally {
+      setSyncingHistory(false);
+    }
+  }
+
   function persistReadingState(nextLocation: ReadingLocation, nextActive: ActiveReading | null) {
     persistLocalState(user!.uid, nextLocation, nextActive);
     if (uid && db) {
@@ -246,6 +262,8 @@ export default function App() {
         onDiscard={discardReading}
         onDelete={deleteSessions}
         onClearHistory={clearHistory}
+        onSyncHistory={syncHistory}
+        syncingHistory={syncingHistory}
       />
       {savedConfirmation && (
         <div className="save-confirmation" role="status">
